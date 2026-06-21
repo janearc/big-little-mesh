@@ -1,5 +1,19 @@
 # big little mesh
 
+big-company developer infrastructure — orchestration, central logging, a secrets
+service, dev and prod, observability — shrunk to fit one laptop. a small set of
+agent-first services that make working solo feel like working somewhere with a
+few thousand engineers. here's the roster; the *why* is below it.
+
+| what | it does | repo |
+|---|---|---|
+| **delightd** | the brain: what's deployed, what's running, what's safe | [janearc/delightd](https://github.com/janearc/delightd) |
+| **kafka-svc** | the event bus and the log of everything | [janearc/kafka-svc](https://github.com/janearc/kafka-svc) |
+| **obs-svc** | dashboards and a floating health widget | [janearc/obs-svc](https://github.com/janearc/obs-svc) |
+| **taco** | resilient transfers across a bad link | [janearc/taco](https://github.com/janearc/taco) |
+| **paling** | a fine-tuner that learns your voice | [janearc/paling](https://github.com/janearc/paling) |
+| traefik, cloudflared, kube secrets | the edge: routing, exposure, the vault | _the perimeter_ |
+
 i am primarily (hi, i'm [max](https://github.com/janearc)) or perhaps only a backend engineer. and i have really only professionally worked in large environments where there was platform and infra or i was part of the effort to build that. i am a big believer in containerisation and to a lesser extent virtualisation, so when docker started to swallow devops (where i lived at the time), [it was a welcome change for me](https://youtu.be/FDgQdjidXpY).
 
 a consequence of the way i write software and the environments in which i work professionally is almost no software i ever write has any kind of human interface. this is cool for a backend engineer, because that's kind of what we do: go away, you can just curl the endpoint and jq it, i can't explain it, it's in the backend, it's produced from a bunch of services that might even be degraded or down.
@@ -44,17 +58,17 @@ that's the mesh. it is deliberately small, and it is meant to disappear. because
 
 ```mermaid
 flowchart TB
-    toys["what you actually build · a voice fine-tuner · a local image/video pipeline · your toys"]
-    subgraph blm["the big little mesh — the part you stop thinking about"]
-      delightd["delightd · the brain: what's deployed, what's running, what's safe"]
-      bus["kafka + protobuf · the log of everything, under contract"]
-      obs["obs-svc · dashboards + a floating health widget"]
-      edge["traefik · cloudflared · kube secrets · the front door + the vault"]
-      taco["taco · bytes across a bad link"]
+    toys["your toys, built on top"]
+    subgraph mesh["the big little mesh"]
+      delightd["delightd, the brain"]
+      bus["kafka and protobuf, the log of everything"]
+      obs["obs-svc, dashboards and a health widget"]
+      edge["traefik, cloudflared, kube secrets"]
+      taco["taco, bytes across a bad link"]
     end
-    k8s["kubernetes (k3d) · the same manifests you'd ship to prod"]
-    toys --> blm
-    blm --> k8s
+    k8s["kubernetes via k3d, the same manifests as prod"]
+    toys --> mesh
+    mesh --> k8s
 ```
 
 ## the part early uber didn't have
