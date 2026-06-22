@@ -14,3 +14,12 @@ plugins:
   - local: protoc-gen-go
     out: gen/go
     opt: paths=source_relative
+  # betterproto: pydantic-flavored Python dataclasses that serialize to protobuf
+  # wire (the Confluent-SR framing is added around the payload by the emit layer,
+  # same as Go). One contract -> Go and Python, both generated + round-trip
+  # verified. NOTE: betterproto v2 is prerelease -- Python consumers must pin
+  # `betterproto==2.0.0b7` to match this generated code (the v2 field API differs
+  # from stable v1; mismatched runtimes fail to import).
+  - local: protoc-gen-python_betterproto
+    out: gen/python
+    opt: pydantic_dataclasses
