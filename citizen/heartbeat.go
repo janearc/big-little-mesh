@@ -1,0 +1,62 @@
+// Package citizen is the high-level good-citizen surface a service wires up: the
+// heartbeat every citizen emits, and (as good-citizen grows) the watch/secrets/
+// scheduler glue. It sits on top of the emit package so a service gets fleet
+// observability for free by calling one function.
+package citizen
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/janearc/blm/emit"
+	observabilityv1 "github.com/janearc/blm/gen/go/observability/v1"
+)
+
+const (
+	// TopicObservability is the fleet heartbeat topic. Code is truth: this is
+	// observability.events, not observability.heartbeat.
+	TopicObservability = "observability.events"
+	// SubjectHeartbeat is the RecordNameStrategy subject for the heartbeat schema.
+	SubjectHeartbeat = "observability.v1.ServiceHealthHeartbeat"
+)
+
+// Heartbeat emits a ServiceHealthHeartbeat for serviceName every interval via
+// pub, until ctx is cancelled. Best-effort: a publish failure is logged, never
+// fatal -- a citizen whose telemetry is down keeps doing its job. A nil pub is a
+// no-op (emission disabled), so a caller can hold one unconditionally and let a
+// missing broker be silent. Blocks; run it in a goroutine.
+//
+// schemaText is the observability .proto source (see
+// proto/observability/v1.Schema); it is registered once per subject.
+func Heartbeat(ctx context.Context, pub *emit.Publisher, serviceName, schemaText string, interval time.Duration, log *slog.Logger) {
+	if interval <= 0 {
+		interval = 15 * time.Second
+	}
+	if log == nil {
+		log = slog.Default()
+	}
+	start := time.Now()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			hb := &observabilityv1.ServiceHealthHeartbeat{
+				ServiceName:    serviceName,
+				CurrentState:   observabilityv1.HealthState_HEALTH_STATE_GREEN,
+				UptimeSeconds:  uint32(time.Since(start).Seconds()),
+				Timestamp:      timestamppb.Now(),
+				IdempotencyKey: fmt.Sprintf("%s-hb-%d", serviceName, time.Now().UnixNano()),
+			}
+			if err := pub.Publish(ctx, TopicObservability, SubjectHeartbeat, schemaText, serviceName, hb); err != nil {
+				log.Error("heartbeat emit failed", "service", serviceName, "err", err)
+			}
+		}
+	}
+}
