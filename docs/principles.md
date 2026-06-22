@@ -22,3 +22,26 @@ contract, and the bounded behavior hand-written on top of it. Contract changes g
 through a diff that is reviewed and landed; schema-registry compatibility and buf
 breaking-checks enforce it. Be as weird as you like in your own code -- you do not
 get to change the environment without an approved diff.
+
+## Containment, not trust
+
+We do not trust the author of a change -- human or agent -- more than we trust any
+coworker. Everyone makes mistakes; that is not a claim about AI, it is a claim
+about people and computers alike. So the mesh is built so that trust is not
+required: it bounds what any actor can break.
+
+Two layers do this. **Contracts** protect the data plane -- an off-spec message
+cannot reach the wire, so no change can corrupt data or take down another service
+by malforming what it emits. **Isolation** bounds the blast radius of the code
+itself -- a service runs in a container, reads its secrets only from injected
+references, and cannot touch the host's disk or another service's state. The worst
+a broken change can do is exhaust memory or peg a core: annoying, and recoverable.
+What it cannot do is leak a secret, corrupt the store, or take out its neighbors.
+
+That is what makes it possible to land -- and to trust -- code you have not read.
+It is the same property that let thousands of engineers move fast on one
+self-healing mesh: not because everyone was careful, but because the environment
+made the catastrophic failure modes structurally impossible. It is also why an
+agent can be handed real work here. Write the most broken thing you like; if it is
+wrong it physically cannot get onto the wire, and it cannot reach anything it
+should not.
