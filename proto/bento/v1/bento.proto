@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+// Package bento.v1 is the shared unit-of-work contract: the bento/banchan model
+// every pipeline service reuses (paling, magpie, crepe, and whatever comes next).
+// A bento is a directory of inputs plus its staged outputs; a banchan is one
+// processing step over a bento. Modeled on paling's implementation and generated
+// to Go + Python, so every service shares the same shape and declares its own
+// KIND rather than reinventing the base.
+//
+// Generated = data (these messages). Hand-written = behavior (the on-disk layout
+// -- raw_data/, schema/, adapters/, anchors/ -- and the stage execution) lives in
+// each service on top of the generated types.
+package bento.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// BentoState is the bento's lifecycle. Deliberately generic so every service
+// shares one enum; a service's domain phases (paling's PREPARING/TRAINING) are
+// PROCESSING here, with the specifics carried in the running banchan.
+enum BentoState {
+  BENTO_STATE_UNSPECIFIED = 0;
+  BENTO_STATE_IDLE = 1;        // created; nothing running
+  BENTO_STATE_PROCESSING = 2;  // a banchan is running
+  BENTO_STATE_DONE = 3;
+  BENTO_STATE_FAILED = 4;
+}
+
+// BanchanState is one processing step's status. Taken from paling's set, which is
+// already service-agnostic. NEEDS_MASSAGE means the step ran but its output wants
+// human or repair attention before downstream steps trust it.
+enum BanchanState {
+  BANCHAN_STATE_UNSPECIFIED = 0;
+  BANCHAN_STATE_NOT_STARTED = 1;
+  BANCHAN_STATE_IN_PROGRESS = 2;
+  BANCHAN_STATE_PARTIAL = 3;
+  BANCHAN_STATE_NEEDS_MASSAGE = 4;
+  BANCHAN_STATE_DONE = 5;
+  BANCHAN_STATE_FAILED = 6;
+}
+
+// Bento is the atomic unit of work: a directory tree of inputs plus schema,
+// adapters, and staged outputs. Every bento has these base attributes; a service
+// declares a KIND (paling calls it the archetype -- voice-memo, character, scrape,
+// ...) and carries kind-specific config in schema_json, so a new kind extends the
+// model without changing the contract.
+message Bento {
+  string id = 1;          // uuid
+  string name = 2;
+  string kind = 3;        // the archetype: what kind of bento this is
+  BentoState state = 4;
+  string root_path = 5;   // the bento's directory, under ${PREFIX}/var/<service>/bentos
+  google.protobuf.Timestamp created_at = 6;
+  // schema_json carries kind-specific declared config (paling's schema.json:
+  // archetype + routing). Free-form so a kind specializes without a contract change.
+  string schema_json = 7;
+}
+
+// Banchan is one processing step over a bento (paling: verify, taxonometry,
+// extract, ...; magpie: transcribe, cleanup). Its lifecycle transitions are what
+// the good-citizen emit layer publishes to the bus as events.
+message Banchan {
+  string id = 1;
+  string name = 2;        // the step's name
+  string bento_id = 3;
+  BanchanState state = 4;
+  string trace_id = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp finished_at = 7;
+  string error_message = 8;
+}
