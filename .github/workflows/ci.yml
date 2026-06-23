@@ -64,6 +64,9 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           version: 1.71.0
+          # authenticate the buf-release lookup so it isn't throttled by the shared
+          # runner IP's unauthenticated GitHub API rate limit (flaked the gate otherwise).
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install the pinned codegen plugins
         run: |
