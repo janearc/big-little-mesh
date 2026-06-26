@@ -72,6 +72,7 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
           go install ./cmd/protoc-gen-fsm
+          go install ./cmd/protoc-gen-swift-codable
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Regenerate
