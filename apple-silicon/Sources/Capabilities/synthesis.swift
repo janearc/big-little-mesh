@@ -1,8 +1,11 @@
 // SynthesisCapability — text → speech audio file, via AVSpeechSynthesizer.
 //
 // The fun, hard one. It prefers the user's on-device **Personal Voice** when one is
-// enrolled and authorized (the liarbird upgrade: your story in your voice), and falls
-// back to a system voice otherwise — honest gating, never silently wrong. It writes to
+// enrolled and authorized — this is the macOS *accessibility* Personal Voice the user
+// records in Settings. We can't create one programmatically (it's locked to enrollment);
+// we can only use it if it already exists and the user has authorized access (the
+// liarbird upgrade: your story in your voice). It falls back to a system voice otherwise
+// — honest gating, never silently wrong. It writes to
 // an audio FILE (not the speakers) by assembling the synthesizer's PCM buffers, the same
 // artifact shape the rest of the fleet produces.
 //
@@ -15,11 +18,12 @@ import Foundation
 import AVFoundation
 
 @available(macOS 26.0, *)
-struct SynthesisCapability: Capability {
-    let name = "synthesis"
-    let role = "speech-synthesis"
+public struct SynthesisCapability: Capability {
+    public let name = "synthesis"
+    public let role = "speech-synthesis"
+    public init() {}
 
-    func available() -> (ok: Bool, reason: String) {
+    public func available() -> (ok: Bool, reason: String) {
         // a system voice always exists; report whether a personal voice is installed so
         // the truth (your-voice vs robot) is visible up front.
         let hasPersonal = AVSpeechSynthesisVoice.speechVoices()
@@ -28,7 +32,7 @@ struct SynthesisCapability: Capability {
                                   : "av-speech (system voices only)")
     }
 
-    func run(_ req: CapabilityRequest) async throws -> CapabilityResult {
+    public func run(_ req: CapabilityRequest) async throws -> CapabilityResult {
         guard let text = req.text,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw CapabilityError.badRequest("synthesis needs non-empty text")
@@ -47,6 +51,9 @@ struct SynthesisCapability: Capability {
             (c: CheckedContinuation<AVSpeechSynthesizer.PersonalVoiceAuthorizationStatus, Never>) in
             AVSpeechSynthesizer.requestPersonalVoiceAuthorization { c.resume(returning: $0) }
         }
+        // NOTE: en-US is hardcoded. Mixed-language ("code-switching") input keeps biting
+        // us and we have no good way to handle it here yet — one utterance gets one voice
+        // in one language.
         var voice = AVSpeechSynthesisVoice(language: "en-US")
         var personal = false
         if auth == .authorized,

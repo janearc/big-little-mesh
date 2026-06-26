@@ -1,11 +1,18 @@
 // apple-silicon — the capability core.
 //
-// Proves two design claims at once: the single-arbiter contention model and "one
-// transport, several frameworks." Capabilities have heterogeneous I/O —
-// transcription is audio→text, synthesis is text→audio, text is text→text — so they
-// share one request/result and ride one arbiter. This is the proven core promoted
-// from research into blm; the model.v1 / sidecar.v1 contracts and the HTTP serving
-// layer wire onto it in following steps (today it is exercised by the CLI below).
+// What this gives the fleet: direct, in-enclave access to the on-device models on
+// Apple Silicon, with the heavy work shunted to the Neural Engine (ANE) where it
+// runs at roughly 70:1 realtime — the same work we fought to get anywhere near 1:1
+// off-device. Three capabilities front three Apple frameworks behind one uniform
+// request/result:
+//
+//   • transcription — audio → text  (the on-device speech transcriber)
+//   • synthesis     — text → audio  (speech synthesizer + Personal Voice)
+//   • text          — text → text   (the on-device foundation model, "AFM") — next
+//
+// blm is optimized for Apple Silicon, and this is where that optimization lives.
+// One arbiter fronts the shared chip (there is one ANE per host) so a machine never
+// floods its own silicon.
 
 import Foundation
 import Speech
@@ -18,27 +25,37 @@ import AVFoundation
 // messages; in-process this struct pair is the erasure that lets one arbiter and one
 // server front every capability the same way.)
 
-struct CapabilityRequest: Sendable {
-    var text: String? = nil
-    var inputPath: String? = nil
-    var params: [String: String] = [:]
+public struct CapabilityRequest: Sendable {
+    public var text: String?
+    public var inputPath: String?
+    public var params: [String: String]
+    public init(text: String? = nil, inputPath: String? = nil, params: [String: String] = [:]) {
+        self.text = text
+        self.inputPath = inputPath
+        self.params = params
+    }
 }
 
-struct CapabilityResult: Sendable {
-    var text: String? = nil
-    var outputPath: String? = nil
-    var detail: [String: String] = [:]
-    var summary: String {
+public struct CapabilityResult: Sendable {
+    public var text: String?
+    public var outputPath: String?
+    public var detail: [String: String]
+    public init(text: String? = nil, outputPath: String? = nil, detail: [String: String] = [:]) {
+        self.text = text
+        self.outputPath = outputPath
+        self.detail = detail
+    }
+    public var summary: String {
         if let t = text { return "chars=\(t.count)" }
         if let p = outputPath { return "out=\((p as NSString).lastPathComponent)" }
         return "ok"
     }
 }
 
-enum CapabilityError: Error, CustomStringConvertible {
+public enum CapabilityError: Error, CustomStringConvertible {
     case badRequest(String)
     case unavailable(String)
-    var description: String {
+    public var description: String {
         switch self {
         case .badRequest(let m): return "bad request: \(m)"
         case .unavailable(let m): return "unavailable: \(m)"
@@ -47,7 +64,7 @@ enum CapabilityError: Error, CustomStringConvertible {
 }
 
 @available(macOS 26.0, *)
-protocol Capability: Sendable {
+public protocol Capability: Sendable {
     var name: String { get }
     var role: String { get }
     func available() -> (ok: Bool, reason: String)
@@ -57,15 +74,15 @@ protocol Capability: Sendable {
 // MARK: - Transcription (audio → text), via SpeechTranscriber
 
 @available(macOS 26.0, *)
-struct TranscriptionCapability: Capability {
-    let name = "transcription"
-    let role = "transcription"
+public struct TranscriptionCapability: Capability {
+    public let name = "transcription"
+    public let role = "transcription"
     let locale: Locale
-    init(locale: Locale = Locale(identifier: "en-US")) { self.locale = locale }
+    public init(locale: Locale = Locale(identifier: "en-US")) { self.locale = locale }
 
-    func available() -> (ok: Bool, reason: String) { (true, "speech-transcriber") }
+    public func available() -> (ok: Bool, reason: String) { (true, "speech-transcriber") }
 
-    func run(_ req: CapabilityRequest) async throws -> CapabilityResult {
+    public func run(_ req: CapabilityRequest) async throws -> CapabilityResult {
         guard let inputPath = req.inputPath else {
             throw CapabilityError.badRequest("transcription needs inputPath (an audio file)")
         }
@@ -99,17 +116,17 @@ func stamp() -> String {
 }
 
 @available(macOS 26.0, *)
-actor Arbiter {
-    enum Outcome { case done(summary: String, wall: Double); case busy; case failed(String) }
+public actor Arbiter {
+    public enum Outcome: Sendable { case done(summary: String, wall: Double); case busy; case failed(String) }
 
-    let capacity: Int                  // max admitted at once (running + queued)
+    public let capacity: Int           // max admitted at once (running + queued)
     private var admitted = 0
     private var running = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    init(capacity: Int) { self.capacity = capacity }
+    public init(capacity: Int) { self.capacity = capacity }
 
-    func submit(_ label: String, _ work: @Sendable @escaping () async throws -> CapabilityResult) async -> Outcome {
+    public func submit(_ label: String, _ work: @Sendable @escaping () async throws -> CapabilityResult) async -> Outcome {
         guard admitted < capacity else {
             print("  [\(stamp())] BUSY   \(label)  (admitted \(admitted)/\(capacity))")
             return .busy
@@ -138,58 +155,6 @@ actor Arbiter {
         } catch {
             print("  [\(stamp())] FAIL   \(label)  \(error)")
             return .failed("\(error)")
-        }
-    }
-}
-
-// MARK: - Proof CLI
-
-@available(macOS 26.0, *)
-@main
-struct Main {
-    static func main() async {
-        let args = Array(CommandLine.arguments.dropFirst())
-        guard let verb = args.first else {
-            FileHandle.standardError.write(Data(
-                "usage:\n  provider transcribe <audio> [audio ...]   # concurrency proof\n  provider say \"<text>\" [outfile]\n".utf8))
-            exit(2)
-        }
-        let arbiter = Arbiter(capacity: 2)
-
-        switch verb {
-        case "transcribe":
-            let files = Array(args.dropFirst())
-            let cap = TranscriptionCapability()
-            print("firing \(files.count) concurrent transcribe requests at one arbiter (capacity=2)\n")
-            await withTaskGroup(of: Void.self) { group in
-                for (i, f) in files.enumerated() {
-                    let path = f
-                    group.addTask {
-                        let label = "req#\(i) \(URL(fileURLWithPath: path).lastPathComponent)"
-                        _ = await arbiter.submit(label) { try await cap.run(CapabilityRequest(inputPath: path)) }
-                    }
-                }
-            }
-            print("\nRUN events never overlapped; overflow shed as BUSY.")
-
-        case "say":
-            let text = args.count > 1 ? args[1] : ""
-            let out = args.count > 2 ? args[2] : ""
-            let cap = SynthesisCapability()
-            let (ok, reason) = cap.available()
-            print("synthesis available: \(ok)  (\(reason))")
-            let params: [String: String] = out.isEmpty ? [:] : ["out": out]
-            let outcome = await arbiter.submit("say") {
-                try await cap.run(CapabilityRequest(text: text, params: params))
-            }
-            switch outcome {
-            case .done(let s, let w): print("done: \(s) in \(String(format: "%.1f", w))s")
-            case .busy: print("BUSY")
-            case .failed(let e): print("FAILED: \(e)")
-            }
-
-        default:
-            FileHandle.standardError.write(Data("unknown verb: \(verb)\n".utf8)); exit(2)
         }
     }
 }
