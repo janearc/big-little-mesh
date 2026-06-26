@@ -38,3 +38,11 @@ plugins:
     opt:
       - paths=source_relative
       - lang=python
+  # protoc-gen-swift-codable (local, in cmd/) emits plain Swift Codable structs +
+  # String enums for the packages the on-device provider consumes (model.v1,
+  # sidecar.v1), so Swift speaks protojson with no SwiftProtobuf dependency. Built
+  # via `go install ./cmd/protoc-gen-swift-codable`; other packages are skipped.
+  - local: protoc-gen-swift-codable
+    out: gen/swift
+    opt:
+      - paths=source_relative
