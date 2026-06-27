@@ -64,10 +64,16 @@ func EnsureTopics(ctx context.Context, brokers []string, specs ...TopicSpec) err
 	return nil
 }
 
-// FleetTopics is the v0.5 topic set, declared once so kafka-svc provisions
-// exactly what the contracts assume. Single broker on the laptop -> replication
-// 1, one partition; revisit per-topic when the mesh grows. Code is truth on the
-// names: heartbeats go to observability.events.
+// FleetTopics is the v0.5 topic set, declared once so it is provisioned exactly as
+// the contracts assume. Single broker on the laptop -> replication 1, one partition;
+// revisit per-topic when the mesh grows. Code is truth on the names (verified against
+// the producers/consumers):
+//   - observability.events -- service heartbeats (ServiceHealthHeartbeat). TokenBurnEvent
+//     rides this topic too via RecordNameStrategy, so there is no separate token-burn topic.
+//   - bento.events          -- the bento lifecycle (dummy + the per-pipeline sidecars)
+//   - delight.events        -- delightd backup/domain events (BackupEvent)
+//   - paling.events         -- paling's BanchanLifecycleEvent
+//   - magpie.events         -- magpie's events (declared ahead of magpie landing)
 func FleetTopics() []TopicSpec {
 	const (
 		parts = int32(1)
@@ -75,6 +81,8 @@ func FleetTopics() []TopicSpec {
 	)
 	return []TopicSpec{
 		{Name: "observability.events", Partitions: parts, ReplicationFactor: repl},
+		{Name: "bento.events", Partitions: parts, ReplicationFactor: repl},
+		{Name: "delight.events", Partitions: parts, ReplicationFactor: repl},
 		{Name: "paling.events", Partitions: parts, ReplicationFactor: repl},
 		{Name: "magpie.events", Partitions: parts, ReplicationFactor: repl},
 	}
