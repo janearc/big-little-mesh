@@ -34,33 +34,24 @@ swift test
 
 ## Requirements
 
-- **Apple Silicon with a Neural Engine (ANE), on macOS 26.** A deliberately high bar on
-  two axes: **recency** — it builds against the macOS 26 SDK (deployment target
-  `macOS("26.0")` in the repo-root `Package.swift`) via a Swift **6.2.x** toolchain, so an
-  older macOS / SDK cannot build it — and **hardware** — it runs on the ANE, which not
-  every machine has. This is host-only by nature, not portable.
-- **Model assets are not automatically present.** The speech-transcriber assets
-  download on first use (via `AssetInventory`), and a **Personal Voice** must be
-  enrolled by the user in System Settings to be available at all. Having a Mac is not
-  enough — expect a couple of downloads / a setup step.
+- **Apple Silicon with a Neural Engine, on macOS 26.** The recency bar is high on purpose
+  — AFM just landed and it's a moving target — so it builds against the macOS 26 SDK
+  (`macOS("26.0")` in `Package.swift`) with a Swift 6.2.x toolchain, and it runs on the
+  ANE. Host-only, accordingly.
+- **Model assets aren't bundled.** The transcriber assets download on first use (via
+  `AssetInventory`), and a **Personal Voice** has to be enrolled in System Settings to
+  exist at all. Expect a download or two.
 
 ## Toolchain, formatting & CI
 
-- **Toolchain:** Swift **6.2.x** from the Xcode (beta) that ships the macOS 26 SDK.
-- **Formatting / lint** is `swift format`, configured by `.swift-format` at the repo root
-  (4-space indent, 100-col) — the Swift equivalent of the Go `gofmt` / Python `ruff`
-  gates. Locally:
+- **Toolchain:** Swift 6.2.x (the Xcode that ships the macOS 26 SDK).
+- **Formatting** is `swift format` against `.swift-format` (4-space, 100-col) — the
+  `gofmt` / `ruff` of this corner:
   ```
-  # check
   swift format lint --strict --recursive --configuration .swift-format apple-silicon/Sources apple-silicon/Tests
-  # fix in place
-  swift format --in-place --recursive --configuration .swift-format apple-silicon/Sources apple-silicon/Tests
+  swift format --in-place --recursive --configuration .swift-format apple-silicon/Sources apple-silicon/Tests   # fix
   ```
-- **CI** lives in `.github/workflows/swift.yml`: format-lint + `swift build` + `swift test`.
-  It **cannot run on the Linux runners** the Go/Python lanes use, nor on hosted macOS
-  runners (they don't meet the recency bar and carry no ANE) — so it runs on a
-  **self-hosted macOS runner**,
-  realistically the dev machine. Register one labelled `self-hosted, macOS, ARM64`
-  (repo *Settings → Actions → Runners → New self-hosted runner*, macOS/arm64). The lane is
-  **path-filtered** to `apple-silicon/**`, so it only fires on Swift changes and never
-  blocks the Go/Python lanes; when the runner is offline the Swift checks simply wait.
+- **CI** (`.github/workflows/swift.yml`): format-lint + `swift build` + `swift test`, on a
+  **self-hosted macOS runner** — it needs the ANE and the macOS 26 SDK, so the Linux and
+  hosted runners can't. Label it `self-hosted, macOS, ARM64`; it's path-filtered to
+  `apple-silicon/**`, so it stays out of the Go/Python lanes.
