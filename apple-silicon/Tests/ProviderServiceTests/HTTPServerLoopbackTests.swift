@@ -1,5 +1,6 @@
-import XCTest
 import Foundation
+import XCTest
+
 @testable import ProviderService
 
 // EchoHandler exercises the real socket path without capabilities: it echoes a POST body
@@ -30,7 +31,8 @@ final class HTTPServerLoopbackTests: XCTestCase {
         XCTAssertEqual(String(data: data, encoding: .utf8), "hello over the wire")
 
         // and a real GET /health.
-        let (hdata, hresp) = try await URLSession.shared.data(from: URL(string: "http://127.0.0.1:\(port)/health")!)
+        let (hdata, hresp) = try await URLSession.shared.data(
+            from: URL(string: "http://127.0.0.1:\(port)/health")!)
         XCTAssertEqual((hresp as? HTTPURLResponse)?.statusCode, 200)
         XCTAssertTrue(String(data: hdata, encoding: .utf8)?.contains("ok") ?? false)
     }

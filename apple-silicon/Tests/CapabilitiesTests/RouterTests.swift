@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Capabilities
 
 // A test double: a capability with no real framework behind it, so the router/arbiter
@@ -55,8 +56,9 @@ private actor Gate {
 @available(macOS 26.0, *)
 final class RouterTests: XCTestCase {
     func testSuccessRoutesToCapabilityAndReturnsResult() async {
-        let cap = FakeCapability(name: "t", role: "transcription",
-                                 result: CapabilityResult(text: "hello world"))
+        let cap = FakeCapability(
+            name: "t", role: "transcription",
+            result: CapabilityResult(text: "hello world"))
         let router = Router(capabilities: [cap], capacity: 2)
         let outcome = await router.invoke(role: "transcription", CapabilityRequest())
         guard case .ok(let result) = outcome else { return XCTFail("expected .ok, got \(outcome)") }
@@ -66,14 +68,19 @@ final class RouterTests: XCTestCase {
     func testUnknownRoleIsUnavailable() async {
         let router = Router(capabilities: [], capacity: 2)
         let outcome = await router.invoke(role: "nope", CapabilityRequest())
-        guard case .unavailable = outcome else { return XCTFail("expected .unavailable, got \(outcome)") }
+        guard case .unavailable = outcome else {
+            return XCTFail("expected .unavailable, got \(outcome)")
+        }
     }
 
     func testUnavailableCapabilityIsGatedBeforeAdmission() async {
-        let cap = FakeCapability(name: "s", role: "synthesis", ok: false, reason: "no model installed")
+        let cap = FakeCapability(
+            name: "s", role: "synthesis", ok: false, reason: "no model installed")
         let router = Router(capabilities: [cap], capacity: 2)
         let outcome = await router.invoke(role: "synthesis", CapabilityRequest())
-        guard case .unavailable(let reason) = outcome else { return XCTFail("expected .unavailable, got \(outcome)") }
+        guard case .unavailable(let reason) = outcome else {
+            return XCTFail("expected .unavailable, got \(outcome)")
+        }
         XCTAssertEqual(reason, "no model installed")
     }
 
@@ -93,14 +100,17 @@ final class RouterTests: XCTestCase {
         // release the worker; the first call completes normally.
         await gate.open()
         let firstOutcome = await first.value
-        guard case .ok = firstOutcome else { return XCTFail("expected first .ok, got \(firstOutcome)") }
+        guard case .ok = firstOutcome else {
+            return XCTFail("expected first .ok, got \(firstOutcome)")
+        }
     }
 
     func testRolesReportsRegisteredCapabilities() async {
-        let router = Router(capabilities: [
-            FakeCapability(name: "t", role: "transcription"),
-            FakeCapability(name: "s", role: "synthesis"),
-        ], capacity: 2)
+        let router = Router(
+            capabilities: [
+                FakeCapability(name: "t", role: "transcription"),
+                FakeCapability(name: "s", role: "synthesis"),
+            ], capacity: 2)
         let roles = await router.roles
         XCTAssertEqual(roles, ["synthesis", "transcription"])
     }

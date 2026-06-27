@@ -14,9 +14,9 @@
 // One arbiter fronts the shared chip (there is one ANE per host) so a machine never
 // floods its own silicon.
 
+import AVFoundation
 import Foundation
 import Speech
-import AVFoundation
 
 // MARK: - The uniform capability shape
 //
@@ -87,8 +87,9 @@ public struct TranscriptionCapability: Capability {
             throw CapabilityError.badRequest("transcription needs inputPath (an audio file)")
         }
         let url = URL(fileURLWithPath: inputPath)
-        let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [],
-                                            reportingOptions: [], attributeOptions: [])
+        let transcriber = SpeechTranscriber(
+            locale: locale, transcriptionOptions: [],
+            reportingOptions: [], attributeOptions: [])
         if let r = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             try await r.downloadAndInstall()
         }
@@ -117,16 +118,20 @@ func stamp() -> String {
 
 @available(macOS 26.0, *)
 public actor Arbiter {
-    public enum Outcome: Sendable { case done(result: CapabilityResult, wall: Double); case busy; case failed(String) }
+    public enum Outcome: Sendable {
+        case done(result: CapabilityResult, wall: Double); case busy; case failed(String)
+    }
 
-    public let capacity: Int           // max admitted at once (running + queued)
+    public let capacity: Int  // max admitted at once (running + queued)
     private var admitted = 0
     private var running = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     public init(capacity: Int) { self.capacity = capacity }
 
-    public func submit(_ label: String, _ work: @Sendable @escaping () async throws -> CapabilityResult) async -> Outcome {
+    public func submit(
+        _ label: String, _ work: @Sendable @escaping () async throws -> CapabilityResult
+    ) async -> Outcome {
         guard admitted < capacity else {
             print("  [\(stamp())] BUSY   \(label)  (admitted \(admitted)/\(capacity))")
             return .busy
@@ -136,7 +141,9 @@ public actor Arbiter {
 
         // single worker: park until the worker is free, so RUN events never overlap.
         while running {
-            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in waiters.append(c) }
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                waiters.append(c)
+            }
         }
         running = true
         defer {
@@ -150,7 +157,9 @@ public actor Arbiter {
         do {
             let res = try await work()
             let wall = Date().timeIntervalSince(t)
-            print("  [\(stamp())] DONE   \(label)  \(res.summary) wall=\(String(format: "%.1f", wall))s")
+            print(
+                "  [\(stamp())] DONE   \(label)  \(res.summary) wall=\(String(format: "%.1f", wall))s"
+            )
             return .done(result: res, wall: wall)
         } catch {
             print("  [\(stamp())] FAIL   \(label)  \(error)")

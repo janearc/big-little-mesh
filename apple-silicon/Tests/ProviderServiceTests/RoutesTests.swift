@@ -1,7 +1,8 @@
-import XCTest
-import Foundation
 import Capabilities
 import Contracts
+import Foundation
+import XCTest
+
 @testable import ProviderService
 
 @available(macOS 26.0, *)
@@ -30,9 +31,13 @@ final class RoutesTests: XCTestCase {
     }
 
     func testInvokeRoutesAndReturnsResponse() async {
-        let r = await routes([FakeCapability(name: "t", role: "transcription",
-                                             result: CapabilityResult(text: "the words"))])
-        let body = try! JSONEncoder().encode(InvokeRequest(role: .roleTranscription, inputPath: "/a.m4a"))
+        let r = await routes([
+            FakeCapability(
+                name: "t", role: "transcription",
+                result: CapabilityResult(text: "the words"))
+        ])
+        let body = try! JSONEncoder().encode(
+            InvokeRequest(role: .roleTranscription, inputPath: "/a.m4a"))
         let resp = await r.handle(HTTPRequest(method: "POST", path: "/invoke", body: body))
         XCTAssertEqual(resp.status, 200)
         let decoded = try! JSONDecoder().decode(InvokeResponse.self, from: resp.body)
@@ -41,7 +46,8 @@ final class RoutesTests: XCTestCase {
 
     func testInvalidBodyIsRejected() async {
         let r = await routes([FakeCapability(name: "t", role: "transcription")])
-        let resp = await r.handle(HTTPRequest(method: "POST", path: "/invoke", body: Data("not json".utf8)))
+        let resp = await r.handle(
+            HTTPRequest(method: "POST", path: "/invoke", body: Data("not json".utf8)))
         XCTAssertEqual(resp.status, 400)
     }
 

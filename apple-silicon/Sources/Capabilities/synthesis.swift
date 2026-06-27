@@ -14,8 +14,8 @@
 // through a callback we have to bridge to async. Both are handled on @MainActor so no
 // non-Sendable AV type ever crosses an actor boundary.
 
-import Foundation
 import AVFoundation
+import Foundation
 
 @available(macOS 26.0, *)
 public struct SynthesisCapability: Capability {
@@ -28,16 +28,22 @@ public struct SynthesisCapability: Capability {
         // the truth (your-voice vs robot) is visible up front.
         let hasPersonal = AVSpeechSynthesisVoice.speechVoices()
             .contains { $0.voiceTraits.contains(.isPersonalVoice) }
-        return (true, hasPersonal ? "av-speech (+personal voice installed)"
-                                  : "av-speech (system voices only)")
+        return (
+            true,
+            hasPersonal
+                ? "av-speech (+personal voice installed)"
+                : "av-speech (system voices only)"
+        )
     }
 
     public func run(_ req: CapabilityRequest) async throws -> CapabilityResult {
         guard let text = req.text,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
             throw CapabilityError.badRequest("synthesis needs non-empty text")
         }
-        let outPath = req.params["out"]
+        let outPath =
+            req.params["out"]
             ?? (NSTemporaryDirectory() + "swift-speech-\(UUID().uuidString).caf")
         // everything AV stays on the main actor; only a Sendable dict comes back out.
         let detail = try await Self.speak(text: text, to: URL(fileURLWithPath: outPath))
@@ -57,8 +63,9 @@ public struct SynthesisCapability: Capability {
         var voice = AVSpeechSynthesisVoice(language: "en-US")
         var personal = false
         if auth == .authorized,
-           let pv = AVSpeechSynthesisVoice.speechVoices()
-                       .first(where: { $0.voiceTraits.contains(.isPersonalVoice) }) {
+            let pv = AVSpeechSynthesisVoice.speechVoices()
+                .first(where: { $0.voiceTraits.contains(.isPersonalVoice) })
+        {
             voice = pv
             personal = true
         }
@@ -75,7 +82,7 @@ public struct SynthesisCapability: Capability {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             synth.write(utt) { (buffer: AVAudioBuffer) in
                 guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-                if pcm.frameLength == 0 {                 // empty buffer = synthesis done
+                if pcm.frameLength == 0 {  // empty buffer = synthesis done
                     if !sink.done { sink.done = true; cont.resume() }
                     return
                 }
@@ -88,11 +95,13 @@ public struct SynthesisCapability: Capability {
                     if !sink.done { sink.done = true; cont.resume(throwing: error) }
                 }
             }
-            _ = synth   // keep the synthesizer alive until the callback latch fires
+            _ = synth  // keep the synthesizer alive until the callback latch fires
         }
 
-        return ["role": "speech-synthesis",
-                "voice": voice?.name ?? "system-default",
-                "personal": String(personal)]
+        return [
+            "role": "speech-synthesis",
+            "voice": voice?.name ?? "system-default",
+            "personal": String(personal),
+        ]
     }
 }

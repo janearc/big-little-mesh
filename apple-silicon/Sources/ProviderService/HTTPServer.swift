@@ -32,7 +32,8 @@ public final class HTTPServer: @unchecked Sendable {
             Task { await Self.serve(box.value, handler: handler) }
         }
         let listener = self.listener
-        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<UInt16, Error>) in
+        return try await withCheckedThrowingContinuation {
+            (cont: CheckedContinuation<UInt16, Error>) in
             let once = Once()
             listener.stateUpdateHandler = { state in
                 switch state {
@@ -60,7 +61,9 @@ public final class HTTPServer: @unchecked Sendable {
             let response = await handler.handle(request)
             try await send(response, on: connection)
         } catch {
-            try? await send(HTTPResponse(status: 400, body: Data(#"{"error":"bad request"}"#.utf8)), on: connection)
+            try? await send(
+                HTTPResponse(status: 400, body: Data(#"{"error":"bad request"}"#.utf8)),
+                on: connection)
         }
     }
 
@@ -69,15 +72,20 @@ public final class HTTPServer: @unchecked Sendable {
         while true {
             if let request = try parse(buffer) { return request }
             let chunk = try await receive(connection)
-            if chunk.isEmpty { throw HTTPError.incomplete }   // EOF before a full request
+            if chunk.isEmpty { throw HTTPError.incomplete }  // EOF before a full request
             buffer.append(chunk)
         }
     }
 
     private static func receive(_ connection: NWConnection) async throws -> Data {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, _, error in
-                if let error { cont.resume(throwing: error) } else { cont.resume(returning: data ?? Data()) }
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
+                data, _, _, error in
+                if let error {
+                    cont.resume(throwing: error)
+                } else {
+                    cont.resume(returning: data ?? Data())
+                }
             }
         }
     }
@@ -90,9 +98,11 @@ public final class HTTPServer: @unchecked Sendable {
         var data = Data(head.utf8)
         data.append(response.body)
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            connection.send(content: data, completion: .contentProcessed { error in
-                if let error { cont.resume(throwing: error) } else { cont.resume() }
-            })
+            connection.send(
+                content: data,
+                completion: .contentProcessed { error in
+                    if let error { cont.resume(throwing: error) } else { cont.resume() }
+                })
         }
     }
 
@@ -118,9 +128,12 @@ public final class HTTPServer: @unchecked Sendable {
         }
         let contentLength = Int(headers["content-length"] ?? "0") ?? 0
         let bodyStart = headEnd.upperBound
-        guard buffer.distance(from: bodyStart, to: buffer.endIndex) >= contentLength else { return nil }
+        guard buffer.distance(from: bodyStart, to: buffer.endIndex) >= contentLength else {
+            return nil
+        }
         let bodyEnd = buffer.index(bodyStart, offsetBy: contentLength)
-        return HTTPRequest(method: method, path: path, headers: headers, body: Data(buffer[bodyStart..<bodyEnd]))
+        return HTTPRequest(
+            method: method, path: path, headers: headers, body: Data(buffer[bodyStart..<bodyEnd]))
     }
 
     private static func reason(_ status: Int) -> String {
