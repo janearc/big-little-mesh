@@ -7,9 +7,9 @@
 // The HTTP transport (next step) calls handle() and maps ServiceError onto status codes;
 // the mapping itself is tested here without the network.
 
-import Foundation
 import Capabilities
 import Contracts
+import Foundation
 
 // ServiceError is the typed failure the transport maps to HTTP: .busy -> 429/503,
 // .unavailable -> 503, .failed -> 500. "Busy" is not an error in the result sense -- the
@@ -53,11 +53,12 @@ public struct ProviderService: Sendable {
         )
         switch await router.invoke(role: key, capReq) {
         case .ok(let result):
-            return .success(InvokeResponse(
-                text: result.text ?? "",
-                outputPath: result.outputPath ?? "",
-                detail: result.detail
-            ))
+            return .success(
+                InvokeResponse(
+                    text: result.text ?? "",
+                    outputPath: result.outputPath ?? "",
+                    detail: result.detail
+                ))
         case .busy:
             return .failure(.busy)
         case .unavailable(let reason):

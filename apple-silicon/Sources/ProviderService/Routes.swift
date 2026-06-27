@@ -6,8 +6,8 @@
 // It is pure given the request bytes (no sockets), so the routing + status mapping is
 // unit-tested directly; the HTTP server just hands it parsed requests.
 
-import Foundation
 import Contracts
+import Foundation
 
 @available(macOS 26.0, *)
 public struct Routes: HTTPHandler {
@@ -26,7 +26,8 @@ public struct Routes: HTTPHandler {
         case ("POST", "/invoke"):
             return await invoke(request.body)
         default:
-            return Self.encode(404, ErrorBody(error: "not found: \(request.method) \(request.path)"))
+            return Self.encode(
+                404, ErrorBody(error: "not found: \(request.method) \(request.path)"))
         }
     }
 

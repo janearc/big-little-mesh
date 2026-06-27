@@ -6,8 +6,8 @@
 //
 // Env: PROVIDER_PORT (default 8077), PROVIDER_CAPACITY (arbiter admission, default 2).
 
-import Foundation
 import Capabilities
+import Foundation
 import ProviderService
 
 @main
@@ -17,15 +17,17 @@ struct Daemon {
         let port = UInt16(env["PROVIDER_PORT"] ?? "") ?? 8077
         let capacity = Int(env["PROVIDER_CAPACITY"] ?? "") ?? 2
 
-        let router = Router(capabilities: [
-            TranscriptionCapability(),
-            SynthesisCapability(),
-        ], capacity: capacity)
+        let router = Router(
+            capabilities: [
+                TranscriptionCapability(),
+                SynthesisCapability(),
+            ], capacity: capacity)
         let routes = Routes(service: ProviderService(router: router), roles: await router.roles)
 
         let server = try HTTPServer(port: port, handler: routes)
         let bound = try await server.start()
-        FileHandle.standardError.write(Data("apple-silicon provider listening on 127.0.0.1:\(bound)\n".utf8))
+        FileHandle.standardError.write(
+            Data("apple-silicon provider listening on 127.0.0.1:\(bound)\n".utf8))
 
         // park forever; the listener serves on its own queue until the process is signalled.
         while true {

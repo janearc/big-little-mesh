@@ -10,7 +10,8 @@ public struct HTTPRequest: Sendable {
     public let path: String
     public let headers: [String: String]
     public let body: Data
-    public init(method: String, path: String, headers: [String: String] = [:], body: Data = Data()) {
+    public init(method: String, path: String, headers: [String: String] = [:], body: Data = Data())
+    {
         self.method = method
         self.path = path
         self.headers = headers
