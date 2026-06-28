@@ -84,18 +84,27 @@ tree, never spread at top level.
 - **`birblib.recipe`** — `Request` + `resolve(recipe_values, overrides, overridable)`:
   lay caller overrides over the pipeline's tuned values, reject unknown keys, record
   overriding as the `anti_pattern` signal. (Recipe scope is open decision §9.2.)
-- **`birblib.service`** — `serve_inbox(...)` (good_citizen.watcher + real sidecar emit;
-  resilient via the inbox + idempotent reprocess), `build_app(...)` (the `/health`,
-  `202`-submit + `GET /jobs/{id}` poll, and `/artifacts/{id}/{name}` traversal-guarded
-  surface), and `ack(...)` (the JSON-by-default CLI ACK). The HTTP half needs the optional
-  extra: `pip install blm-good-citizen[service]`. **`build_app`'s `POST /jobs` is a
-  single-node/local-dev affordance** — it persists the NOTICED bento then drives it on an
-  in-process thread; the *fleet* submit path is bus-enqueue (persist, emit NOTICED, let a
-  bus worker drive it). The per-modality `/v1` facade stays the birb's own.
+- **`birblib.service`** — `serve_inbox(provider, …)` drives a `good_citizen` watcher over a
+  [Provider](../../docs/providers.md) (intake, the persistent restart-surviving dedup, the
+  partial-write guard, and the terminal notify are the provider's job) with the real sidecar
+  emit; `build_app(...)` is the `/health`, `202`-submit + `GET /jobs/{id}` poll, and
+  `/artifacts/{id}/{name}` traversal-guarded surface; `ack(...)` is the JSON-by-default CLI
+  ACK. The HTTP half needs the optional extra: `pip install blm-good-citizen[service]`.
+  **`build_app`'s `POST /jobs` is a single-node/local-dev affordance** — it persists the
+  NOTICED bento then drives it on an in-process thread; the *fleet* submit path is bus-enqueue
+  (persist, emit NOTICED, let a bus worker drive it). The per-modality `/v1` facade stays the
+  birb's own.
 - **`birblib.lang`** — ISO 639-1 as the canonical language id, `display_name(code)` for a
   human-readable name in a prompt (fails loud on an unknown code; never passes a bare code
   through — the `"fluent en"` bug).
 - **`birblib.names.safe_name`** — the filename normalizer the file-ingest birbs all carried.
+
+## See also
+
+- [docs/states.md](../../docs/states.md) — the lifecycle and each handler's MUST/MAY (RFC 2119).
+- [docs/providers.md](../../docs/providers.md) — the I/O seam (`read`/`write`/`notify`).
+- [docs/pipelines.md](../../docs/pipelines.md) — bento/banchan and the project ⊇ pipeline ⊇ birb taxonomy.
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) — version discipline and the freeze/seam boundary.
 
 ## Open decisions (track in the PR, not frozen here)
 
