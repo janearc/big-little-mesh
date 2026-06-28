@@ -5,6 +5,15 @@
 # hands us spaces, a crafted name carries "../../" or a bidi override, accented latin
 # slugs two different ways under NFC vs NFD. one tested copy lives here; a birb that
 # archives an operator's file under a legible name imports it.
+#
+# CASE + COLLISIONS (answering @janearc's review question): safe_name lowercases, so on a
+# CASE-INSENSITIVE filesystem (default macOS, the shop's box) "Memo.m4a" and "memo.m4a" slug
+# the same, and on a case-SENSITIVE fs they still slug the same -- the slug is deliberately
+# case-folded so a name means one thing regardless of which fs it lands on. A name with no
+# ascii form (CJK, Cyrillic) folds to "untitled". Neither is data loss, and this is the why:
+# the human-facing slug is ONLY for legibility; uniqueness comes from the bento's uuid
+# directory. Two "untitled" memos (or a "Memo"/"memo" pair) land in different uuid dirs and
+# never collide. The slug is a label, not a key.
 
 import re
 import unicodedata

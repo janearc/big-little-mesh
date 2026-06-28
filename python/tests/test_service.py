@@ -2,6 +2,7 @@
 # render), the artifact traversal guard, and the CLI ACK shape. the heavy work is a fake
 # cook, so this exercises the scaffold without a model.
 import time
+import uuid
 
 import pytest
 
@@ -100,9 +101,11 @@ def test_artifact_traversal_is_blocked(client):
 
 def test_safe_artifact_path_guard(tmp_path):
     # the guard in isolation: a name inside outputs resolves; one that escapes is rejected.
-    inside = service._safe_artifact_path(tmp_path, "bid", "result.txt")
+    # the bento_id must be uuid-shaped (the L2.1 id guard), so use a real one.
+    bid = str(uuid.uuid4())
+    inside = service._safe_artifact_path(tmp_path, bid, "result.txt")
     assert inside is not None and inside.name == "result.txt"
-    assert service._safe_artifact_path(tmp_path, "bid", "../../escape") is None
+    assert service._safe_artifact_path(tmp_path, bid, "../../escape") is None
 
 
 def test_drive_returns_manifest_and_does_not_raise_on_failed(tmp_path):
@@ -168,7 +171,9 @@ def test_serve_inbox_builds_and_drives(tmp_path, monkeypatch):
             banchans=[("src", "source", source.location)],
         )
 
-    provider = FilesystemProvider(inbox, suffixes={".txt"}, debounce_s=0)
+    provider = FilesystemProvider(
+        inbox, suffixes={".txt"}, debounce_s=0, state_path=tmp_path / "state.json",
+    )
     handled = []
     monkeypatch.setattr(
         watcher, "watch",

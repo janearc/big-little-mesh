@@ -24,6 +24,13 @@ from birblib.bento import BirbBento, Manifest
 logger = logging.getLogger(__name__)
 
 
+def _scrub(text) -> str:
+    # strip PII / absolute home paths from a message that lands in the manifest's
+    # detail.error, the bus event's error_message, and the HTTP surface: replace the user's
+    # home dir with "~" so no username leaks. a no-PII posture on the error path.
+    return str(text).replace(str(Path.home()), "~")
+
+
 @dataclasses.dataclass
 class CookResult:
     # what a birb's cook() returns. `artifact` is the primary output's location (or None
@@ -97,7 +104,7 @@ class BirbHandlers(fsm.Handlers):
             ban = bento.banchan(self.source_banchan)
             src = Path(ban.location) if ban is not None else None
             if src is None or not src.is_file():
-                self.error = f"no source for banchan {self.source_banchan!r}: {src}"
+                self.error = _scrub(f"no source for banchan {self.source_banchan!r}: {src}")
                 self._finalize(bento, bento_pb2.BENTO_STATE_FAILED)
                 return bento_pb2.BENTO_STATE_FAILED
             archived = bento.raw_dir / (b.name or src.name)
@@ -116,7 +123,7 @@ class BirbHandlers(fsm.Handlers):
         try:
             result = self.cook(b)
         except Exception as e:  # noqa: BLE001 - cook is the step that cannot degrade; any error FAILs
-            self.error = f"cook failed: {e}"
+            self.error = _scrub(f"cook failed: {e}")
             logger.error("birblib: %s", self.error)
             self._finalize(bento, bento_pb2.BENTO_STATE_FAILED)
             return bento_pb2.BENTO_STATE_FAILED
@@ -129,7 +136,8 @@ class BirbHandlers(fsm.Handlers):
             # manifest at the sink and notifies. (BENTO_STATE_SPOILED is the natural home for
             # "rejected", but it is reserved/unwired in the proto; FAILED is the honest term
             # today. See the open decision in the PR.)
-            self.error = self.detail.get("reason") or "no artifact produced (input rejected/empty)"
+            reason = self.detail.get("reason") or "no artifact produced (input rejected/empty)"
+            self.error = _scrub(reason)
             self._finalize(bento, bento_pb2.BENTO_STATE_FAILED)
             return bento_pb2.BENTO_STATE_FAILED
         if self.artifact_banchan:

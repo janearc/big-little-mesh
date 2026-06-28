@@ -26,12 +26,22 @@ the consumer reads from.
 
 ## What `FilesystemProvider` guarantees
 
-- **Atomic writes.** `write` lands data via a temp file + `os.replace`, so a reader (a poll,
-  another instance, a synced client) never sees a half-written file.
-- **Persistent, restart-surviving dedup.** Delivered sources are recorded to a state file
-  keyed on path+size+mtime. The default environment is a laptop that sleeps and reboots
-  constantly; a restart MUST NOT re-deliver a source or re-create its bento, so dedup is
-  durable, not in-memory.
+- **Atomic, symlink-safe writes.** `write` lands data via an *unpredictable* temp file
+  (`tempfile.mkstemp`, exclusive, mode 0600) + `os.replace`, so a reader never sees a
+  half-written file, and an attacker cannot pre-plant a symlink at a predictable temp path to
+  be followed (and `os.replace` swaps the inode rather than writing *through* a symlinked
+  destination).
+- **At-least-once dedup, recorded on terminal.** A source is recorded delivered (keyed on
+  path+size+mtime) only **after its bento reaches a terminal state** — not at intake. The
+  default environment is a laptop that sleeps and reboots constantly; recording on terminal
+  means a crash *mid-cook* re-delivers the source on restart (the work completes on retry)
+  rather than marking it done and abandoning it. A source already carried to a terminal state
+  is not re-delivered. An in-memory in-flight set stops the same process from handing a source
+  out twice while it cooks.
+- **The delivery log lives outside the inbox.** It defaults under `~/var` (a service SHOULD
+  pass its own path under `~/var/<service>`), never inside the drop directory — the inbox is
+  the scary-world surface, and a dropper there must not be able to pre-seed the state to
+  suppress intake.
 - **Duplicates over loss.** The provider never moves or deletes the source. A genuine
   re-drop — the operator copies the file in again, which moves its mtime — is a new unit and
   is delivered again.

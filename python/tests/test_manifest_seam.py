@@ -4,6 +4,7 @@
 # its on-disk protojson loads straight into the additive BentoManifest proto message -- the
 # marked promotion target -- WITHOUT a migration. These pin that seam so it cannot silently
 # rot, and that a torn read never throws.
+import dataclasses
 import json
 
 from google.protobuf import json_format
@@ -11,6 +12,14 @@ from google.protobuf import json_format
 from bento.v1 import bento_pb2
 from birblib import service
 from birblib.bento import BirbBento, Manifest
+
+
+def test_bentomanifest_and_manifest_fieldsets_are_lockstep():
+    # L2.3: the dataclass and the proto message MUST carry the same field set, so a later
+    # rename on one side fails loudly here instead of silently breaking the promotion seam.
+    dataclass_fields = {f.name for f in dataclasses.fields(Manifest)}
+    proto_fields = {f.name for f in bento_pb2.BentoManifest.DESCRIPTOR.fields}
+    assert dataclass_fields == proto_fields
 
 
 def _manifest(**kw):

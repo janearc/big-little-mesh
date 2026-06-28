@@ -10,6 +10,13 @@
 # a dependency (the box is on a connectivity-hostile network; a vendored dict is honest
 # and offline). extend it as a birb needs a language -- a code with no name fails LOUD
 # (UnknownLanguage), it does not pass the bare code through.
+#
+# SCOPE (answering @janearc's review question): the canonical id is a SINGLE language. A
+# bento is in one language at a time; this module does not model CODE-SWITCHING (a recording
+# that moves between, say, Dutch and English mid-utterance). Code-switching is a real but
+# SEPARATE concern -- a future seam that would carry a sequence or a primary+secondary, owned
+# by the transcription birb, not by this id. Deliberately out of scope here so the one-token
+# id stays simple and feeds both a voice-map birb and a prompt birb without ambiguity.
 
 # ISO 639-1 (two-letter) code -> English display name. add rows as needed.
 _NAMES = {
