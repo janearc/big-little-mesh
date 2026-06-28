@@ -7,6 +7,12 @@ modules:
 lint:
   use:
     - STANDARD
+  # dataprovider.v1's service is named for the contract role ("a DataProvider"), not
+  # suffixed "Service". That is deliberate, so SERVICE_SUFFIX is excepted for this one
+  # file only -- the gate stays fully STANDARD for every other contract and rule.
+  ignore_only:
+    SERVICE_SUFFIX:
+      - proto/dataprovider/v1/data_provider.proto
 breaking:
   use:
     - FILE
