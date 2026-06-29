@@ -3,7 +3,7 @@
 The host-local, on-device capability provider for the fleet: one process per host
 that fronts Apple's on-device frameworks behind a single arbiter (one front door to
 the one Neural Engine per host), reached over the mesh. A pipeline never links Swift —
-it reaches this through the good-citizen model client and the `model.v1` /
+it reaches this through the frood model client and the `model.v1` /
 `sidecar.v1` descriptors.
 
 **Library-first.** The `Capabilities` library is the core; the daemon and any shell
@@ -28,7 +28,7 @@ The Swift package is rooted at the **repo root** (one package, mirroring the sin
 `go.mod`):
 
 ```
-swift build      # from the blm repo root
+swift build      # from the big-little-mesh repo root
 swift test
 ```
 
