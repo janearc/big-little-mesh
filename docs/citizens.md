@@ -1,66 +1,66 @@
 # Citizens: the guaranteed interface
 
-Every member of the mesh is a **citizen** -- a watcher or a listener (see
-[services.md](services.md)), it does not matter which. Citizenship is what they share, and a
-citizen is required to expose a small **guaranteed interface**: the
-[`good_citizen`](../citizen) baseline (mirrored in [Python](../python/good_citizen)), made
-mandatory and machine-checkable. It is the minimum that lets the mesh know a thing is alive,
-who it is, what it speaks, and that it is reporting -- without reading its code or trusting
-its word.
+A **citizen** is a project that participates in the mesh, watcher or listener (see
+[services.md](services.md)). Every citizen MUST provide the **guaranteed interface** defined
+here: a fixed set of endpoints plus one publishing obligation that let the mesh identify it,
+check that it is up, and learn what it speaks. The interface is the
+[`good_citizen`](../citizen) library's baseline (mirrored in [Python](../python/good_citizen));
+`citizen.v1` is its contract.
 
-blm did not start as a code-bearing repository. It began as a way to track progress across
-the mesh, and became code-bearing only once it was clear the constituent projects kept
-repeating the same patterns. The generalization of those patterns *is* `good_citizen` -- the
-foundational building blocks for being on the mesh at all, something close to a busybox for
-service meshes. The mesh itself is defined by its **contracts**; the contracts are reflected
-in generated code; yaml wires that generated code to the hand-written behavior, which is
-where the FSMs live; and delightd coordinates each citizen's ingress and egress to and from
-the mesh. The mesh is a machine-of-machines -- it computes in arbitrary ways plugged together
-as state machines -- and the guaranteed interface is the slice of `good_citizen` every one of
-those machines must present so the rest can treat it as a citizen.
+## blm and delightd
+
+The interface spans two components, and the split between them is logical -- a matter of
+convenience -- so it is worth stating what lives where:
+
+- **blm** is the library and the contracts. `good_citizen` is the shared code every citizen
+  builds on; the packages under `proto/` (including `citizen.v1`) are the contracts the mesh
+  speaks; generated code reflects those contracts and yaml wires it to the hand-written
+  behavior. blm defines what a citizen *is*. It is the mesh's set of foundational building
+  blocks -- a busybox for service meshes.
+- **delightd** is the orchestrator. It holds the roster, coordinates each citizen's ingress
+  and egress, and (in the register campaign) brokers `/register`. delightd decides who is *on*
+  the mesh.
+
+This document describes the blm half: the interface a citizen MUST present. What delightd does
+with that interface is delightd's to document.
 
 ## The guaranteed set
 
-A citizen exposes at least:
+Every citizen MUST:
 
-- **`GET /health`** -- liveness. The existing convention; a citizen that does not answer here
-  is not alive as far as the mesh is concerned.
-- **identity** -- who-am-I: `service_name`, the declared `project` it binds to, and a
+- **answer `GET /health`** -- liveness. A citizen that does not answer is treated as down.
+- **answer an identity request** -- `service_name`, the declared `project` it binds to, and a
   `version`. The contract is `citizen.v1.Identity`.
-- **a contract descriptor** -- what this citizen *emits*, *consumes*, and *serves*, each named
-  by subject. The contract is `citizen.v1.ContractDescriptor`.
-- **metrics** -- a citizen must be *publishing* metrics. The mesh does not dictate *how* or how
-  often -- services differ, some far more chatty than others -- but you must publish, and the
-  metrics must land on a topic the bus knows about (your own, registered with the schema
-  registry, or an existing one you reuse). Where metrics ride the bus as a contract, they show
-  up in the descriptor's `emits` like anything else a citizen emits; the requirement is that
-  you are reporting at all, not the shape of it.
+- **answer a contract-descriptor request** -- the contracts it `emits`, `consumes`, and
+  `serves`, each named by subject. The contract is `citizen.v1.ContractDescriptor`.
+- **emit metrics** -- a citizen MUST publish metrics to a topic the bus knows about: its own
+  topic registered with the schema registry, or an existing one it reuses. The format and
+  cadence are the citizen's choice; the obligation is that it publishes. Metrics carried as a
+  bus contract appear in the descriptor's `emits` like any other emitted subject.
 
-Liveness says it is up; identity says which project it is acting as; the descriptor says what
-it speaks; metrics say what it is doing while it runs. Those four answer the only questions a
-peer or the orchestrator has to ask before trusting a citizen to participate.
+Health reports that it is up, identity reports which project it acts as, the descriptor reports
+what it speaks, and metrics report what it is doing. These are the inputs the mesh needs to
+treat a process as a citizen.
 
 ## Naming contracts by subject
 
-The descriptor names contracts by **subject** -- the contract's RecordNameStrategy identity,
-which is the fully-qualified protobuf message name (e.g. `observability.v1.ServiceHealthHeartbeat`).
-That is deliberate: it is the same key the bus and the schema registry already use, so a claim
-in the descriptor is not prose -- it is checkable against what is actually registered. A
-citizen that claims to emit a subject the registry has never seen is making a claim that fails
-verification, not one that quietly passes.
+The descriptor names each contract by **subject** -- its RecordNameStrategy identity, the
+fully-qualified protobuf message name (e.g. `observability.v1.ServiceHealthHeartbeat`). This is
+the same key the bus and the schema registry use, so a descriptor entry is checkable: a claimed
+subject either matches a registered contract or it does not. delightd verifies the claims
+against the registry rather than taking them on trust.
 
-The split by direction is how a peer routes and how the mesh reasons about flow: a watcher
-typically *emits* and *consumes* on the bus; a listener typically *serves* a request surface.
-A citizen may do any combination -- the descriptor states which, per contract.
+The direction split lets a peer route and the mesh reason about flow. A watcher typically
+`emits` and `consumes`; a listener typically `serves`. A citizen MAY do any combination; the
+descriptor states which, per contract.
 
 ## Verified at register
 
-The guaranteed set is not a style guide; it is an admission check. delightd is becoming a
-`/register` broker for the mesh, and registration verifies that a citizen exposes this set and
-that its descriptor claims check out before the citizen is admitted. A citizen that cannot say
-who it is or what it speaks does not get to participate.
+The guaranteed set is an admission check, not a convention. delightd's `/register` (the
+register campaign) verifies that a citizen provides the set and that its descriptor claims
+resolve against the registry before admitting it.
 
-This is staged and additive. Defining and exposing the interface comes first; verification at
-register comes with the broker; making registration mandatory -- retiring the static roster and
-poll -- is the last step, not this one. Until then the guaranteed interface is the contract a
-citizen is built against, and the thing the broker will check when it arrives.
+The campaign is staged and additive. The interface is defined and implemented first;
+`/register` verifies it next; making registration mandatory -- retiring the static roster and
+poll -- is the final step. Until then `citizen.v1` is the contract a citizen is built against,
+and the set `/register` will check.
