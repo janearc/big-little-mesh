@@ -2,9 +2,22 @@
 
 Every member of the mesh is a **citizen** -- a watcher or a listener (see
 [services.md](services.md)), it does not matter which. Citizenship is what they share, and a
-citizen is required to expose a small **guaranteed interface**: the good_citizen baseline,
-made mandatory and machine-checkable. It is the minimum that lets the mesh know a thing is
-alive, who it is, and what it speaks -- without reading its code or trusting its word.
+citizen is required to expose a small **guaranteed interface**: the
+[`good_citizen`](../citizen) baseline (mirrored in [Python](../python/good_citizen)), made
+mandatory and machine-checkable. It is the minimum that lets the mesh know a thing is alive,
+who it is, what it speaks, and that it is reporting -- without reading its code or trusting
+its word.
+
+blm did not start as a code-bearing repository. It began as a way to track progress across
+the mesh, and became code-bearing only once it was clear the constituent projects kept
+repeating the same patterns. The generalization of those patterns *is* `good_citizen` -- the
+foundational building blocks for being on the mesh at all, something close to a busybox for
+service meshes. The mesh itself is defined by its **contracts**; the contracts are reflected
+in generated code; yaml wires that generated code to the hand-written behavior, which is
+where the FSMs live; and delightd coordinates each citizen's ingress and egress to and from
+the mesh. The mesh is a machine-of-machines -- it computes in arbitrary ways plugged together
+as state machines -- and the guaranteed interface is the slice of `good_citizen` every one of
+those machines must present so the rest can treat it as a citizen.
 
 ## The guaranteed set
 
@@ -16,10 +29,16 @@ A citizen exposes at least:
   `version`. The contract is `citizen.v1.Identity`.
 - **a contract descriptor** -- what this citizen *emits*, *consumes*, and *serves*, each named
   by subject. The contract is `citizen.v1.ContractDescriptor`.
+- **metrics** -- a citizen must be *publishing* metrics. The mesh does not dictate *how* or how
+  often -- services differ, some far more chatty than others -- but you must publish, and the
+  metrics must land on a topic the bus knows about (your own, registered with the schema
+  registry, or an existing one you reuse). Where metrics ride the bus as a contract, they show
+  up in the descriptor's `emits` like anything else a citizen emits; the requirement is that
+  you are reporting at all, not the shape of it.
 
 Liveness says it is up; identity says which project it is acting as; the descriptor says what
-it speaks. Those three answer the only questions a peer or the orchestrator has to ask before
-trusting a citizen to participate.
+it speaks; metrics say what it is doing while it runs. Those four answer the only questions a
+peer or the orchestrator has to ask before trusting a citizen to participate.
 
 ## Naming contracts by subject
 
