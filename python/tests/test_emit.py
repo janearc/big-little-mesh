@@ -87,3 +87,44 @@ def test_non_failed_event_has_no_error(monkeypatch):
     em(bento_pb2.Bento(id="b10"), bento_pb2.BENTO_STATE_DONE)
     assert sent[0].error_message == ""
     assert sent[0].trace_id == "b10"
+
+
+def test_emit_returns_true_on_accept(monkeypatch):
+    # emit returns True when the sidecar accepts (2xx); for a terminal event that is the bus ack.
+    class _Resp:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=None: _Resp())
+    assert emit.emit(bento_pb2.BentoLifecycleEvent(bento_id="b1"), "http://x/emit") is True
+
+
+def test_emit_returns_false_on_failure(monkeypatch):
+    # a sidecar/bus failure returns False (and does not raise) -- a terminal caller gates on this.
+    def boom(req, timeout=None):
+        raise OSError("sidecar down")
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    assert emit.emit(bento_pb2.BentoLifecycleEvent(bento_id="b2"), "http://x/emit") is False
+
+
+def test_emitter_records_terminal_ack_only_for_terminal(monkeypatch):
+    # the emitter records the TERMINAL event's ack into ack_holder; a non-terminal transition is
+    # not recorded (it stays best-effort, recovered by a re-run).
+    monkeypatch.setattr(emit, "emit", lambda ev, url=None: True)
+    ack = {}
+    em = emit.sidecar_emitter(ack_holder=ack)
+    em(bento_pb2.Bento(id="b3", kind="k"), bento_pb2.BENTO_STATE_COOK)
+    assert "terminal_acked" not in ack  # non-terminal: not recorded
+    em(bento_pb2.Bento(id="b3", kind="k"), bento_pb2.BENTO_STATE_DONE)
+    assert ack["terminal_acked"] is True  # terminal: recorded, and the bus acked
+
+
+def test_emitter_records_false_when_terminal_dropped(monkeypatch):
+    # when the bus drops the terminal event, ack_holder records False so the caller does NOT record
+    # the work as delivered (it re-runs instead).
+    monkeypatch.setattr(emit, "emit", lambda ev, url=None: False)
+    ack = {}
+    em = emit.sidecar_emitter(ack_holder=ack)
+    em(bento_pb2.Bento(id="b4", kind="k"), bento_pb2.BENTO_STATE_FAILED)
+    assert ack["terminal_acked"] is False

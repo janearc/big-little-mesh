@@ -36,15 +36,19 @@ def _valid_bento_id(bento_id) -> bool:
 
 # --- driving a bento with the REAL sidecar emit (the daemon/http path) ------------
 
-def drive(handlers, bento, sidecar_url=None) -> Manifest | None:
+def drive(handlers, bento, sidecar_url=None, ack_holder=None) -> Manifest | None:
     # step a bento to a terminal state, relaying each transition to the Go sidecar (the
     # bus). shares the FSM step-loop with driver.run via _walk; unlike driver.run (the CLI,
     # which raises on FAILED so a shell sees the error), this returns the manifest and never
     # raises on a FAILED bento -- a daemon logs the outcome and stays up for the next file.
     # an unexpected exception still propagates so the watcher's per-file guard can catch it.
+    #
+    # ack_holder (optional): if given, the emitter records whether the bento's TERMINAL event was
+    # acked by the bus into ack_holder["terminal_acked"], so a caller can gate delivery on the
+    # commit actually landing (serve_inbox does; the CLI/HTTP paths pass nothing and stay as-is).
     pb = _pb(bento)
     # the emitter closes over the handler so a FAILED event carries error_message + trace_id.
-    _walk(handlers, pb, _emit.sidecar_emitter(sidecar_url, handlers))
+    _walk(handlers, pb, _emit.sidecar_emitter(sidecar_url, handlers, ack_holder=ack_holder))
     return handlers.manifest
 
 
@@ -60,14 +64,26 @@ def serve_inbox(provider, make_handlers, make_bento, *, sidecar_url=None, interv
         bento = make_bento(source)
         handlers = make_handlers()
         handlers.io = provider
-        manifest = drive(handlers, bento, sidecar_url=sidecar_url)
-        # record delivery ONLY after the bento reached a terminal state (DONE or FAILED). a
-        # crash before this point leaves the source undelivered, so a restart re-delivers it
-        # rather than abandoning the work silently (at-least-once).
-        provider.mark_done(source)
-        if manifest is not None:
-            logger.info(
-                "birblib: %s -> %s (ok=%s)", source.name, manifest.artifact, manifest.ok,
+        ack = {}
+        manifest = drive(handlers, bento, sidecar_url=sidecar_url, ack_holder=ack)
+        # Record delivery ONLY on a POSITIVE terminal handoff: the bento's terminal event
+        # (DONE/PARTIAL/FAILED) reached the durable bus and the broker acked it (acks=all). Reaching
+        # a terminal STATE is not enough -- if that commit did not land on the bus, nobody
+        # downstream knows the work finished, so it is NOT delivered. Leave the source undelivered
+        # and let the next tick RE-RUN it (at-least-once, dup-over-loss -- the same restart model
+        # Spark/Hadoop use: no positive handoff means the unit did not commit, so re-run it, not
+        # salvage local state). A persistent miss is loud and means the bus/pipeline is broken --
+        # the correct signal.
+        if ack.get("terminal_acked"):
+            provider.mark_done(source)
+            if manifest is not None:
+                logger.info(
+                    "birblib: %s -> %s (ok=%s)", source.name, manifest.artifact, manifest.ok,
+                )
+        else:
+            logger.warning(
+                "birblib: %s reached terminal but the bus did NOT ack its commit; leaving "
+                "undelivered for re-run", source.name,
             )
 
     watcher.watch(provider, _handle, interval=interval)

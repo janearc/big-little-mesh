@@ -174,6 +174,11 @@ def test_serve_inbox_builds_and_drives(tmp_path, monkeypatch):
     provider = FilesystemProvider(
         inbox, suffixes={".txt"}, debounce_s=0, state_path=tmp_path / "state.json",
     )
+    # the sidecar acks the terminal event (bus up): the happy path delivers.
+    import frood.emit as emit_mod
+    monkeypatch.setattr(emit_mod, "emit", lambda ev, url=None: True)
+    marked = []
+    monkeypatch.setattr(provider, "mark_done", lambda source: marked.append(source))
     handled = []
     monkeypatch.setattr(
         watcher, "watch",
@@ -185,3 +190,49 @@ def test_serve_inbox_builds_and_drives(tmp_path, monkeypatch):
     bentos = [d for d in bentos_root.iterdir() if d.is_dir()]
     assert len(bentos) == 1
     assert service.read_manifest(bentos_root, bentos[0].name).ok is True
+    # the terminal event was acked, so the source was marked delivered.
+    assert len(marked) == 1
+
+
+def test_serve_inbox_leaves_undelivered_when_terminal_not_acked(tmp_path, monkeypatch):
+    # same path, but the bus DROPS the terminal event (emit -> False). The bento still cooks (a
+    # manifest is written), but the source must NOT be marked delivered -- the commit did not land,
+    # so it is left for a re-run (at-least-once), not silently abandoned.
+    from frood import watcher
+    from frood.provider import FilesystemProvider
+
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "a.txt").write_text("payload")
+    bentos_root = tmp_path / "bentos"
+
+    class _IngestBirb(BirbHandlers):
+        kind = "test.ingest"
+        source_banchan = "src"
+        artifact_banchan = "out"
+
+        def cook(self, b):
+            out = BirbBento(b).out_dir / "done.txt"
+            self.io.write(str(out), "cooked")
+            return CookResult(artifact=str(out), ok=True)
+
+    def make_bento(source):
+        return BirbBento.new(
+            kind="test.ingest", bentos_root=bentos_root, name=source.name,
+            banchans=[("src", "source", source.location)],
+        )
+
+    provider = FilesystemProvider(
+        inbox, suffixes={".txt"}, debounce_s=0, state_path=tmp_path / "state.json",
+    )
+    import frood.emit as emit_mod
+    monkeypatch.setattr(emit_mod, "emit", lambda ev, url=None: False)  # bus drops the terminal
+    marked = []
+    monkeypatch.setattr(provider, "mark_done", lambda source: marked.append(source))
+    monkeypatch.setattr(
+        watcher, "watch",
+        lambda p, handler, interval=5.0: watcher.scan_once(p, handler),
+    )
+    service.serve_inbox(provider, _IngestBirb, make_bento)
+    # cooked (manifest present) but NOT delivered -- the terminal commit never landed on the bus.
+    assert marked == []

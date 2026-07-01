@@ -57,6 +57,21 @@ func getenv(k, def string) string {
 	return def
 }
 
+// isTerminal reports whether a bento state is a terminal outcome (DONE / PARTIAL / FAILED) -- the
+// FSM halts there, so that event is the bento's "output commit". The FSM has no generated
+// terminal-set (it models terminal as "a handler returns UNSPECIFIED"), so the set is named here;
+// keep it in sync with bento.proto's terminal states.
+func isTerminal(s bentov1.BentoState) bool {
+	switch s {
+	case bentov1.BentoState_BENTO_STATE_DONE,
+		bentov1.BentoState_BENTO_STATE_PARTIAL,
+		bentov1.BentoState_BENTO_STATE_FAILED:
+		return true
+	default:
+		return false
+	}
+}
+
 // emitIntake decodes a BentoLifecycleEvent (protojson -- the contract's canonical JSON,
 // not a hand-mapped subset) and publishes it to bento.events. A nil publisher accepts
 // and drops, so the sidecar runs and stays useful before the bus is up.
@@ -72,9 +87,25 @@ func emitIntake(ctx context.Context, pub *emit.Publisher) http.HandlerFunc {
 			http.Error(w, "bad protojson", http.StatusBadRequest)
 			return
 		}
-		// a nil publisher (dry bus) returns nil here -- accept-and-drop, best-effort.
+		// A TERMINAL event (DONE/PARTIAL/FAILED) is the bento's output commit: it MUST land on the
+		// durable bus with a broker ack, or the producer has to be told it did NOT -- so it does
+		// not record the work as delivered. So a dry bus, which accept-and-drops a NON-terminal
+		// event best-effort, must instead REFUSE a terminal one. Silently 202-dropping a terminal
+		// would let the pipeline believe it committed when nobody on the bus will ever know it
+		// finished, and re-handling cannot recover a finished bento -- exactly the floor we forbid.
+		terminal := isTerminal(ev.GetState())
+		if pub == nil {
+			if terminal {
+				http.Error(w, "bus unavailable: cannot commit terminal event", http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusAccepted) // non-terminal on a dry bus: accept-and-drop (best-effort)
+			return
+		}
+		// Publish waits for the acks=all broker ack (ProduceSync); a non-nil error means the record
+		// did NOT durably land. For a terminal event that is a commit failure the caller must see.
 		if err := pub.Publish(ctx, topicBentoEvents, subjectBento, bentoproto.Schema, ev.GetBentoId(), ev); err != nil {
-			log.Error("bento lifecycle emit failed", "err", err, "bento_id", ev.GetBentoId())
+			log.Error("bento lifecycle emit failed", "err", err, "bento_id", ev.GetBentoId(), "terminal", terminal)
 			http.Error(w, "emit failed", http.StatusBadGateway)
 			return
 		}
