@@ -45,6 +45,31 @@ jobs:
       - name: go test
         run: go test ./...
 
+  buf-breaking:
+    # A schema break on the contract home must not merge: buf breaking against
+    # the PR base, FILE-level rules from buf.yaml. This is the mechanical gate
+    # ADR-0001 assumed (the wire is the boundary-enforcer); it becomes a
+    # REQUIRED check once proven green on its own PR. Runs only on
+    # pull_request -- required checks are evaluated on PRs, and a push to main
+    # has no base to diff against.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # full history so the base sha is reachable for the --against ref.
+          fetch-depth: 0
+
+      - name: Set up buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: 1.71.0
+          # same throttling note as gen-drift: authenticate the release lookup.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: buf breaking against the PR base
+        run: buf breaking --against ".git#ref=${{ github.event.pull_request.base.sha }}"
+
   gen-drift:
     # Committed gen must match a fresh `buf generate` with the PINNED toolchain --
     # stale or hand-edited gen is how outages ship. Toolchain: buf 1.71.0,
