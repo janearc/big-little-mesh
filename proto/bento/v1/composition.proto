@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+// The composition surface of bento.v1 -- the follow-up bento.proto's header defers to.
+// A bento carries its RECIPE (what it wants to become, as an itinerary of capabilities
+// and a convergence declaration); a caller submits an INTENT and nothing else. The
+// caller never orchestrates: no route of named services, no multi-step path handed
+// down from outside. See docs/composition-surface.md (ADR-0002) and
+// docs/pipelines.md, "Composition and destinations".
+//
+// Deliberately NOT here: the Intent lifecycle state enum (it lands with the routing
+// implementation, once intent transport is ratified -- transport is an open question
+// and nothing in this file presumes one), and the speedy binding (the mesh's
+// near-realtime capability -- close to realtime, not realtime, and deliberately not
+// called streaming; a speedy session will later bind to a bento and its segments to
+// banchans). Both land in follow-ups so the contract never carries a half-formed
+// concept.
+package bento.v1;
+
+import "bento/v1/bento.proto";
+import "frood/v1/frood.proto";
+
+// RecipeStep is one unit of a recipe's itinerary: a KIND of work the bento must
+// pass through, and the contracts its input and output must speak. (Named
+// RecipeStep, not Step: the generated fsm harness already owns Step in the
+// bento.v1 Go package.)
+message RecipeStep {
+  // capability names WHAT kind of work this step is (transcription, text-clean,
+  // image-generation, ...). It is NEVER a service name: the mesh resolves a
+  // capability to a citizen by discovery, the same way model.v1 selects a model
+  // family by capability rather than by a concrete model's name. Naming a service
+  // here would prescribe a route, and the composition doctrine forbids prescribed
+  // routes (see docs/pipelines.md).
+  string capability = 1;
+  // input is the contract this step consumes -- the same RecordNameStrategy subject
+  // a frood claims in its ContractDescriptor, so resolving a capability to a citizen
+  // is checkable: the citizen must claim it consumes this.
+  frood.v1.ContractRef input = 2;
+  // output is the contract this step produces, checkable the same way against the
+  // citizen's emits/serves claims.
+  frood.v1.ContractRef output = 3;
+}
+
+// Convergence declares how the mesh knows a recipe's bento is finished -- DONE or
+// FAILED -- for pipelines that loop: process, judge, process again. The shape is
+// deliberately minimal: an acceptance check and a bound. What happens BETWEEN passes
+// (retry biasing, model swaps, escalation -- the convergence policy) is undefined and
+// deferred; declaring it here would put a half-formed concept on the wire, the exact
+// thing bento.proto's header refuses to do.
+message Convergence {
+  // acceptance is the check that decides DONE: when it passes, the bento has
+  // converged. It is a declared, runnable check (the same shape a banchan carries),
+  // never a shell script smuggled in by a caller. Unset means the bento's default
+  // completeness rule applies: every declared banchan present and its assets passing.
+  BanchanAsset acceptance = 1;
+  // max_passes bounds the sanctioned convergence loop -- the ONE cycle a pipeline is
+  // allowed (see docs/pipelines.md, "Convergence"). A bento that reaches the bound
+  // without acceptance goes PARTIAL or FAILED, loudly; it is never looped past the
+  // bound. Zero means no looping: one pass, then judge.
+  uint32 max_passes = 2;
+}
+
+// Recipe is what a bento carries so the mesh can compose work: the itinerary of
+// capabilities it must pass through and the declaration of when it has converged.
+// The doctrine: the bento carries the recipe; the caller never orchestrates. A
+// pipeline reads the recipe from the bento it holds and works out the next step
+// itself -- no caller stands outside the mesh driving hops.
+message Recipe {
+  // steps is the itinerary, in order. Each step names a capability, never a service;
+  // resolution to a citizen is the mesh's, by discovery, at each hop.
+  repeated RecipeStep steps = 1;
+  // convergence declares how this recipe's bento is known to be done or failed.
+  Convergence convergence = 2;
+}
+
+// Intent is the ONLY thing a caller submits: name the recipe, point at the input
+// bento, sign it, bound it. Everything after submission is the mesh's -- the bento
+// carries the recipe and the mesh walks it. How an intent travels (bus vs
+// dataprovider) is an open question; nothing in this message presumes a transport.
+message Intent {
+  // intent_id is the idempotency key (uuid4): the same intent submitted twice is one
+  // fact, not two.
+  string intent_id = 1;
+  // parent_intent_id is the provenance chain: the intent this one was derived from,
+  // empty for a root intent. hop_bound PREVENTS a cycle; parent_intent_id makes one
+  // ATTRIBUTABLE -- walk the chain and you can name the recipe and submitter that
+  // spiraled, not merely observe that something did. Prevention without attribution
+  // leaves nothing to fix.
+  string parent_intent_id = 2;
+  // recipe_id references the recipe this intent submits work to. Where recipes
+  // reside and how the reference resolves is the mesh's concern, not the caller's;
+  // a recipe registry is deliberately not defined here.
+  string recipe_id = 3;
+  // bento_id is the input bento's guid (Bento.id).
+  string bento_id = 4;
+  // submitter is who asked: the frood identity this intent is attributed to.
+  frood.v1.Identity submitter = 5;
+  // hop_bound is the loop protection: every intent derived from another carries its
+  // parent's hop_bound minus one. An intent arriving with hop_bound zero is REFUSED,
+  // loudly -- never silently dropped -- so a runaway composition fails visibly and
+  // its chain (parent_intent_id) says who to blame.
+  uint32 hop_bound = 6;
+}
