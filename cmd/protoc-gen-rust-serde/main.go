@@ -18,8 +18,10 @@
 // Rust consumer needs -- observability.v1 by default -- and only the field shapes that package
 // actually uses: string, uint32, proto3 `optional uint32`, enum, singular message, and the
 // google.protobuf.Timestamp well-known type (mapped to an RFC3339 String, protojson's
-// Timestamp form). It errors loudly on anything else -- repeated, map, other scalars,
-// other well-known types, nested types -- rather than emit something subtly wrong; teach
+// Timestamp form), and repeated fields of those as Vec<T> (empty omitted on encode,
+// absent decoded as empty -- protojson's list semantics). It errors loudly on anything
+// else -- map, other scalars, other well-known types, nested types -- rather than emit
+// something subtly wrong; teach
 // the emitter the new shape when a real need arrives. (buf runs every plugin over the whole
 // module, so the package filter, like protoc-gen-fsm's enum filter, is how it stays scoped.)
 //
@@ -429,12 +431,14 @@ func genEnum(g *protogen.GeneratedFile, e *protogen.Enum) enumInfo {
 
 // rustField is one resolved struct field: its Rust field name, the protojson JSON key, the
 // Rust type as written, and whether it is wrapped in Option (a singular message, the
-// Timestamp WKT, or a proto3-`optional` scalar) -- which decides skip_serializing_if.
+// Timestamp WKT, or a proto3-`optional` scalar) or is a Vec (a repeated field) -- which
+// decides skip_serializing_if.
 type rustField struct {
 	name     string
 	jsonKey  string
 	typ      string
 	optional bool
+	vec      bool
 }
 
 func genMessage(g *protogen.GeneratedFile, m *protogen.Message) (msgInfo, error) {
@@ -461,9 +465,14 @@ func genMessage(g *protogen.GeneratedFile, m *protogen.Message) (msgInfo, error)
 	g.P("#[serde(default)]")
 	g.P("pub struct ", name, " {")
 	for _, rf := range fields {
-		if rf.optional {
+		switch {
+		case rf.optional:
 			g.P("    #[serde(rename = \"", rf.jsonKey, "\", skip_serializing_if = \"Option::is_none\")]")
-		} else {
+		case rf.vec:
+			// protojson omits empty lists; an absent list decodes to empty via the
+			// struct-level default. Symmetric with Option's skip.
+			g.P("    #[serde(rename = \"", rf.jsonKey, "\", skip_serializing_if = \"Vec::is_empty\")]")
+		default:
 			g.P("    #[serde(rename = \"", rf.jsonKey, "\")]")
 		}
 		g.P("    pub ", rf.name, ": ", rf.typ, ",")
@@ -481,7 +490,14 @@ func mapField(field *protogen.Field) (rustField, error) {
 		return rustField{}, fmt.Errorf("map fields are not supported (teach the emitter)")
 	}
 	if field.Desc.IsList() {
-		return rustField{}, fmt.Errorf("repeated fields are not supported (teach the emitter)")
+		elem, err := listElemType(field)
+		if err != nil {
+			return rustField{}, err
+		}
+		// Elements are values, never Option: protojson list elements are always
+		// present, and a repeated message's absent-vs-empty distinction does not
+		// exist on the wire.
+		return rustField{name: name, jsonKey: jsonKey, typ: "Vec<" + elem + ">", vec: true}, nil
 	}
 
 	switch field.Desc.Kind() {
@@ -501,6 +517,26 @@ func mapField(field *protogen.Field) (rustField, error) {
 		return rustField{name: name, jsonKey: jsonKey, typ: "Option<" + string(field.Message.Desc.Name()) + ">", optional: true}, nil
 	default:
 		return rustField{}, fmt.Errorf("unsupported field kind %q (teach the emitter; note: 64-bit ints are protojson strings)", field.Desc.Kind())
+	}
+}
+
+// listElemType resolves a repeated field's element type: the same kinds the singular
+// switch supports, unwrapped (Timestamp elements ride as RFC3339 Strings).
+func listElemType(field *protogen.Field) (string, error) {
+	switch field.Desc.Kind() {
+	case protoreflect.StringKind:
+		return "String", nil
+	case protoreflect.Uint32Kind:
+		return "u32", nil
+	case protoreflect.EnumKind:
+		return string(field.Enum.Desc.Name()), nil
+	case protoreflect.MessageKind:
+		if field.Message.Desc.FullName() == timestampFullName {
+			return "String", nil
+		}
+		return string(field.Message.Desc.Name()), nil
+	default:
+		return "", fmt.Errorf("repeated %q is not supported (teach the emitter)", field.Desc.Kind())
 	}
 }
 
