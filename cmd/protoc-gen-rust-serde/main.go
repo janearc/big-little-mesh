@@ -505,6 +505,8 @@ func mapField(field *protogen.Field) (rustField, error) {
 		return wrapOptional(field, rustField{name: name, jsonKey: jsonKey, typ: "String"}), nil
 	case protoreflect.Uint32Kind:
 		return wrapOptional(field, rustField{name: name, jsonKey: jsonKey, typ: "u32"}), nil
+	case protoreflect.BoolKind:
+		return wrapOptional(field, rustField{name: name, jsonKey: jsonKey, typ: "bool"}), nil
 	case protoreflect.EnumKind:
 		return wrapOptional(field, rustField{name: name, jsonKey: jsonKey, typ: string(field.Enum.Desc.Name())}), nil
 	case protoreflect.MessageKind:
@@ -528,6 +530,8 @@ func listElemType(field *protogen.Field) (string, error) {
 		return "String", nil
 	case protoreflect.Uint32Kind:
 		return "u32", nil
+	case protoreflect.BoolKind:
+		return "bool", nil
 	case protoreflect.EnumKind:
 		return string(field.Enum.Desc.Name()), nil
 	case protoreflect.MessageKind:
