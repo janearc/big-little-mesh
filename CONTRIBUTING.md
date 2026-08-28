@@ -49,12 +49,32 @@ If you are changing something on the frozen side, treat it as a contract change:
 careful review and the gen-drift/CI gates. If it is on the open side, say so in the PR — it is
 allowed to be provisional.
 
+## Contract majors — a shipped `v1` directory never breaks
+
+Every proto package lives in a major directory: `proto/<pkg>/v1`. The rule, and it is
+mechanical rather than aspirational:
+
+- **Within a major, only non-breaking changes land.** Add a field; reserve a number;
+  never delete, renumber, or retype what shipped. The `buf-breaking` check (FILE rules,
+  required in branch protection) refuses the rest — it is a gate, not advice.
+- **A breaking change is a new major, beside the old one.** `proto/<pkg>/v2` next to
+  `proto/<pkg>/v1`, and the gate admits it freely: new files have no baseline to break.
+  Services speak both majors side by side until the old one is retired.
+- **Shipped majors stay until deliberately retired.** Retirement is a decision that names
+  its consumers, never a cleanup. Deleting a `v1` directory is a breaking change by
+  definition, and the gate will say so.
+
+A practical consequence: when the gate refuses your diff, you are holding either a
+non-breaking change wearing the wrong shape (change a field → add a field), or the first
+commit of a `v2`. Both are fine. Forcing the diff through is the only wrong answer.
+
 ## Quality gates
 
 Every change runs the same gates locally and in CI: `ruff` (E,F,B,N,T201 @ 100), the
 docstring ban (intent in `#` comments, never docstrings), `pytest`, and — for any proto
-change — `buf generate` with the committed gen in sync (the gen-drift gate). Lint and tests
-pass before a push.
+change — `buf generate` with the committed gen in sync (the gen-drift gate) plus
+`buf breaking` against the PR base (the contract gate above). Lint and tests pass before
+a push.
 
 ## Trust — who can participate (vouch)
 
