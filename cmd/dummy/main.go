@@ -142,7 +142,7 @@ func main() {
 		pub = p
 		defer pub.Close()
 		log.Info("kafka emission ready")
-		go frood.Heartbeat(ctx, pub, serviceID, observabilityproto.Schema, 15*time.Second, log)
+		go frood.Heartbeat(ctx, pub, serviceID, 15*time.Second, log)
 	}
 
 	h := handlers{log: log}
