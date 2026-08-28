@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+// Package truth.v1 is hall-monitor's truth report as a contract: the
+// machine-readable statement of who is talking, to whom, and what is yelling
+// into the void -- formalizing what hm has served hand-rolled at /truth.
+//
+// SERVED, NEVER BUSSED. The report is a request-time HTTP document
+// (hm's /truth/v1, canonical protojson); it is a statement about NOW and is
+// never cached and never a bus record, so unlike lease.v1 it registers no
+// Schema-Registry subject. hm serves this package's descriptor at /api, built
+// from the runtime protoregistry -- the served spec cannot drift from the
+// linked types because they are the same bytes.
+//
+// THE FLAGSHIP MULTI-MAJOR SURFACE (versioning directive, 2026-08-28): hm's
+// mux serves majors side by side -- /truth/v1 is this package; a breaking
+// reshape becomes proto/truth/v2 beside this directory and /truth/v2 beside
+// that route, per CONTRIBUTING's contract-majors rule. The legacy hand-rolled
+// /truth JSON stays until deliberately retired.
+//
+// Authorized rows are lease.v1.LeaseVerdict VERBATIM: the truth report quotes
+// the lease authority rather than paraphrasing it, so a consumer that already
+// speaks lease.v1 reads the roster with no second vocabulary.
+package truth.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "lease/v1/lease.proto";
+
+// FindingClass follows the RFC's table: refusal-class rows are mechanical
+// judgments (the wire refused something); findings-class rows -- softer,
+// assessment-tier -- arrive later as a new enum value, which is additive and
+// non-breaking.
+enum FindingClass {
+  FINDING_CLASS_UNSPECIFIED = 0;
+  FINDING_CLASS_REFUSAL = 1;
+}
+
+// FindingKind names the refusal. Values are added, never renumbered.
+enum FindingKind {
+  FINDING_KIND_UNSPECIFIED = 0;
+  // VOID: a live producer with zero live consumer groups.
+  FINDING_KIND_VOID = 1;
+  // SILENT: quiet past three of the topic's own observed cadences.
+  FINDING_KIND_SILENT = 2;
+  // OFF_CONTRACT: records on the wire the contract system refused.
+  FINDING_KIND_OFF_CONTRACT = 3;
+  // LEASE_EXPIRED: a roster citizen the wire says is gone (see lease.v1).
+  FINDING_KIND_LEASE_EXPIRED = 4;
+}
+
+// TopicRow is one topic's truth. Rows are small, self-contained and
+// independently judgeable on purpose -- the assessment tier reads them.
+message TopicRow {
+  string topic = 1;
+  // last_record is the newest record hm observed on this topic.
+  google.protobuf.Timestamp last_record = 2;
+  // consumers is the consumer groups holding this topic, from broker
+  // metadata -- evidence, not claims.
+  repeated string consumers = 3;
+  // void: live producer, zero live consumer groups (refusal-class).
+  bool void = 4;
+  // silent: quiet past three of its own observed cadences (refusal-class).
+  bool silent = 5;
+  // expected_cadence is the topic's own observed cadence, learned from the
+  // wire (the absence ledger); set only when silent.
+  google.protobuf.Duration expected_cadence = 6;
+  google.protobuf.Duration silent_for = 7;
+  // off_contract_records counts traffic on this topic that the contract
+  // system refused. Zero is the healthy state; nonzero names a producer that
+  // is on the network without being in agreement.
+  int64 off_contract_records = 8;
+  google.protobuf.Timestamp last_off_contract = 9;
+}
+
+// Finding is one refusal-class row, self-contained for the assessment tier.
+message Finding {
+  FindingClass class = 1;
+  FindingKind kind = 2;
+  string topic = 3;
+  string detail = 4;
+}
+
+// TopicList exists because proto maps cannot hold repeated values directly.
+message TopicList {
+  repeated string topics = 1;
+}
+
+// Report is the truth report. generated_at stamps it; everything else is
+// evidence with its source stated.
+message Report {
+  string service = 1;
+  google.protobuf.Timestamp generated_at = 2;
+  // authorized is the lease authority's table verbatim -- present when hm
+  // runs with a lease authority, absent otherwise.
+  repeated lease.v1.LeaseVerdict authorized = 3;
+  repeated TopicRow topics = 4;
+  // groups maps consumer group -> the topics it holds.
+  map<string, TopicList> groups = 5;
+  repeated Finding findings = 6;
+
+  // Reserved for build identity and the served-majors surface (the "speaks"
+  // column the registry-aware consumer will fill) -- reserved now so they
+  // arrive without renumbering, the lease.v1 idiom.
+  reserved 7 to 15;
+}
