@@ -27,7 +27,6 @@ import (
 	"github.com/janearc/big-little-mesh/frood"
 	bentov1 "github.com/janearc/big-little-mesh/gen/go/bento/v1"
 	bentoproto "github.com/janearc/big-little-mesh/proto/bento/v1"
-	observabilityproto "github.com/janearc/big-little-mesh/proto/observability/v1"
 	"github.com/janearc/big-little-mesh/watcher"
 )
 
