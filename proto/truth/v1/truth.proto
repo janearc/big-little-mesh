@@ -84,6 +84,17 @@ message Finding {
   FindingKind kind = 2;
   string topic = 3;
   string detail = 4;
+  // service names the citizen a finding is ABOUT, when it is about one --
+  // a lease that decayed, a service whose traffic drew a refusal. Findings
+  // that are only about a topic (records nobody can be attributed for)
+  // leave it empty, and an empty service means exactly that: nobody is
+  // named, so nobody's standing moves.
+  //
+  // Added because topic and service are DIFFERENT identifiers and the
+  // report had been carrying a service name in the topic field for
+  // lease-expired rows -- a type confusion that reads fine until something
+  // groups by topic. Found by a fresh reader on the consuming side.
+  string service = 5;
 }
 
 // TopicList exists because proto maps cannot hold repeated values directly.

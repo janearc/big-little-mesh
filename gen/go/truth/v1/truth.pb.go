@@ -285,11 +285,22 @@ func (x *TopicRow) GetLastOffContract() *timestamppb.Timestamp {
 
 // Finding is one refusal-class row, self-contained for the assessment tier.
 type Finding struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Class         FindingClass           `protobuf:"varint,1,opt,name=class,proto3,enum=truth.v1.FindingClass" json:"class,omitempty"`
-	Kind          FindingKind            `protobuf:"varint,2,opt,name=kind,proto3,enum=truth.v1.FindingKind" json:"kind,omitempty"`
-	Topic         string                 `protobuf:"bytes,3,opt,name=topic,proto3" json:"topic,omitempty"`
-	Detail        string                 `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Class  FindingClass           `protobuf:"varint,1,opt,name=class,proto3,enum=truth.v1.FindingClass" json:"class,omitempty"`
+	Kind   FindingKind            `protobuf:"varint,2,opt,name=kind,proto3,enum=truth.v1.FindingKind" json:"kind,omitempty"`
+	Topic  string                 `protobuf:"bytes,3,opt,name=topic,proto3" json:"topic,omitempty"`
+	Detail string                 `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	// service names the citizen a finding is ABOUT, when it is about one --
+	// a lease that decayed, a service whose traffic drew a refusal. Findings
+	// that are only about a topic (records nobody can be attributed for)
+	// leave it empty, and an empty service means exactly that: nobody is
+	// named, so nobody's standing moves.
+	//
+	// Added because topic and service are DIFFERENT identifiers and the
+	// report had been carrying a service name in the topic field for
+	// lease-expired rows -- a type confusion that reads fine until something
+	// groups by topic. Found by a fresh reader on the consuming side.
+	Service       string `protobuf:"bytes,5,opt,name=service,proto3" json:"service,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -348,6 +359,13 @@ func (x *Finding) GetTopic() string {
 func (x *Finding) GetDetail() string {
 	if x != nil {
 		return x.Detail
+	}
+	return ""
+}
+
+func (x *Finding) GetService() string {
+	if x != nil {
+		return x.Service
 	}
 	return ""
 }
@@ -502,12 +520,13 @@ const file_truth_v1_truth_proto_rawDesc = "" +
 	"\n" +
 	"silent_for\x18\a \x01(\v2\x19.google.protobuf.DurationR\tsilentFor\x120\n" +
 	"\x14off_contract_records\x18\b \x01(\x03R\x12offContractRecords\x12F\n" +
-	"\x11last_off_contract\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x0flastOffContract\"\x90\x01\n" +
+	"\x11last_off_contract\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x0flastOffContract\"\xaa\x01\n" +
 	"\aFinding\x12,\n" +
 	"\x05class\x18\x01 \x01(\x0e2\x16.truth.v1.FindingClassR\x05class\x12)\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x15.truth.v1.FindingKindR\x04kind\x12\x14\n" +
 	"\x05topic\x18\x03 \x01(\tR\x05topic\x12\x16\n" +
-	"\x06detail\x18\x04 \x01(\tR\x06detail\"#\n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\x12\x18\n" +
+	"\aservice\x18\x05 \x01(\tR\aservice\"#\n" +
 	"\tTopicList\x12\x16\n" +
 	"\x06topics\x18\x01 \x03(\tR\x06topics\"\xfa\x02\n" +
 	"\x06Report\x12\x18\n" +

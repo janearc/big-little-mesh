@@ -57,15 +57,17 @@ class TopicRow(_message.Message):
     def __init__(self, topic: _Optional[str] = ..., last_record: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., consumers: _Optional[_Iterable[str]] = ..., void: _Optional[bool] = ..., silent: _Optional[bool] = ..., expected_cadence: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., silent_for: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., off_contract_records: _Optional[int] = ..., last_off_contract: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Finding(_message.Message):
-    __slots__ = ("kind", "topic", "detail")
+    __slots__ = ("kind", "topic", "detail", "service")
     CLASS_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     TOPIC_FIELD_NUMBER: _ClassVar[int]
     DETAIL_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_FIELD_NUMBER: _ClassVar[int]
     kind: FindingKind
     topic: str
     detail: str
-    def __init__(self, kind: _Optional[_Union[FindingKind, str]] = ..., topic: _Optional[str] = ..., detail: _Optional[str] = ..., **kwargs) -> None: ...
+    service: str
+    def __init__(self, kind: _Optional[_Union[FindingKind, str]] = ..., topic: _Optional[str] = ..., detail: _Optional[str] = ..., service: _Optional[str] = ..., **kwargs) -> None: ...
 
 class TopicList(_message.Message):
     __slots__ = ("topics",)
