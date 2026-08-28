@@ -12,8 +12,13 @@ import (
 // TestNew_RejectsEmptyBrokers pins the fail-closed contract: no brokers means
 // emission is unavailable and the caller proceeds with a nil Publisher.
 func TestNew_RejectsEmptyBrokers(t *testing.T) {
-	if _, err := New(context.Background(), nil, "http://x"); err == nil {
+	if _, err := New(context.Background(), nil, "http://x", "test-svc"); err == nil {
 		t.Fatal("expected error for empty brokers")
+	}
+	// The client-id convention is structural: an unnamed producer is the
+	// thing enforcement cannot reach, so New refuses to build one.
+	if _, err := New(context.Background(), []string{"b:9092"}, "http://x", ""); err == nil {
+		t.Fatal("expected error for empty clientID")
 	}
 }
 

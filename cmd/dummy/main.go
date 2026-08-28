@@ -135,7 +135,7 @@ func main() {
 
 	// emission is best-effort: a down broker disables it but never stops the service.
 	var pub *emit.Publisher
-	if p, err := emit.New(ctx, brokers, srURL); err != nil {
+	if p, err := emit.New(ctx, brokers, srURL, "dummy"); err != nil {
 		log.Warn("kafka emission disabled", "err", err)
 	} else {
 		pub = p

@@ -129,7 +129,7 @@ func main() {
 	brokers := strings.Split(getenv("KAFKA_BROKERS", "kafka:9092"), ",")
 	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer pingCancel()
-	if pub, err := emit.New(pingCtx, brokers, getenv("SCHEMA_REGISTRY_URL", "http://schema-registry:8081")); err != nil {
+	if pub, err := emit.New(pingCtx, brokers, getenv("SCHEMA_REGISTRY_URL", "http://schema-registry:8081"), "sidecar"); err != nil {
 		log.Warn("kafka emission disabled (best-effort); /emit will accept-and-drop", "err", err)
 	} else {
 		publisher = pub

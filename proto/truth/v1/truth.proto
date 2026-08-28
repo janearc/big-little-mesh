@@ -46,6 +46,12 @@ enum FindingKind {
   FINDING_KIND_OFF_CONTRACT = 3;
   // LEASE_EXPIRED: a roster citizen the wire says is gone (see lease.v1).
   FINDING_KIND_LEASE_EXPIRED = 4;
+  // RENEWAL_REFUSED: heartbeats are arriving but an open refusal-class
+  // offense stands against this service's traffic, so they do not renew --
+  // the lease is decaying ON PURPOSE while the service is alive
+  // (rfc-hall-monitor 3.4: renewal is automatic only while no open
+  // refusal-class finding stands).
+  FINDING_KIND_RENEWAL_REFUSED = 5;
 }
 
 // TopicRow is one topic's truth. Rows are small, self-contained and

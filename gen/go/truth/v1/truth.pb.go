@@ -108,6 +108,12 @@ const (
 	FindingKind_FINDING_KIND_OFF_CONTRACT FindingKind = 3
 	// LEASE_EXPIRED: a roster citizen the wire says is gone (see lease.v1).
 	FindingKind_FINDING_KIND_LEASE_EXPIRED FindingKind = 4
+	// RENEWAL_REFUSED: heartbeats are arriving but an open refusal-class
+	// offense stands against this service's traffic, so they do not renew --
+	// the lease is decaying ON PURPOSE while the service is alive
+	// (rfc-hall-monitor 3.4: renewal is automatic only while no open
+	// refusal-class finding stands).
+	FindingKind_FINDING_KIND_RENEWAL_REFUSED FindingKind = 5
 )
 
 // Enum value maps for FindingKind.
@@ -118,13 +124,15 @@ var (
 		2: "FINDING_KIND_SILENT",
 		3: "FINDING_KIND_OFF_CONTRACT",
 		4: "FINDING_KIND_LEASE_EXPIRED",
+		5: "FINDING_KIND_RENEWAL_REFUSED",
 	}
 	FindingKind_value = map[string]int32{
-		"FINDING_KIND_UNSPECIFIED":   0,
-		"FINDING_KIND_VOID":          1,
-		"FINDING_KIND_SILENT":        2,
-		"FINDING_KIND_OFF_CONTRACT":  3,
-		"FINDING_KIND_LEASE_EXPIRED": 4,
+		"FINDING_KIND_UNSPECIFIED":     0,
+		"FINDING_KIND_VOID":            1,
+		"FINDING_KIND_SILENT":          2,
+		"FINDING_KIND_OFF_CONTRACT":    3,
+		"FINDING_KIND_LEASE_EXPIRED":   4,
+		"FINDING_KIND_RENEWAL_REFUSED": 5,
 	}
 )
 
@@ -516,13 +524,14 @@ const file_truth_v1_truth_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\x13.truth.v1.TopicListR\x05value:\x028\x01*H\n" +
 	"\fFindingClass\x12\x1d\n" +
 	"\x19FINDING_CLASS_UNSPECIFIED\x10\x00\x12\x19\n" +
-	"\x15FINDING_CLASS_REFUSAL\x10\x01*\x9a\x01\n" +
+	"\x15FINDING_CLASS_REFUSAL\x10\x01*\xbc\x01\n" +
 	"\vFindingKind\x12\x1c\n" +
 	"\x18FINDING_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11FINDING_KIND_VOID\x10\x01\x12\x17\n" +
 	"\x13FINDING_KIND_SILENT\x10\x02\x12\x1d\n" +
 	"\x19FINDING_KIND_OFF_CONTRACT\x10\x03\x12\x1e\n" +
-	"\x1aFINDING_KIND_LEASE_EXPIRED\x10\x04B\x97\x01\n" +
+	"\x1aFINDING_KIND_LEASE_EXPIRED\x10\x04\x12 \n" +
+	"\x1cFINDING_KIND_RENEWAL_REFUSED\x10\x05B\x97\x01\n" +
 	"\fcom.truth.v1B\n" +
 	"TruthProtoP\x01Z:github.com/janearc/big-little-mesh/gen/go/truth/v1;truthv1\xa2\x02\x03TXX\xaa\x02\bTruth.V1\xca\x02\bTruth\\V1\xe2\x02\x14Truth\\V1\\GPBMetadata\xea\x02\tTruth::V1b\x06proto3"
 

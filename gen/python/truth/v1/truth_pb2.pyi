@@ -24,6 +24,7 @@ class FindingKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FINDING_KIND_SILENT: _ClassVar[FindingKind]
     FINDING_KIND_OFF_CONTRACT: _ClassVar[FindingKind]
     FINDING_KIND_LEASE_EXPIRED: _ClassVar[FindingKind]
+    FINDING_KIND_RENEWAL_REFUSED: _ClassVar[FindingKind]
 FINDING_CLASS_UNSPECIFIED: FindingClass
 FINDING_CLASS_REFUSAL: FindingClass
 FINDING_KIND_UNSPECIFIED: FindingKind
@@ -31,6 +32,7 @@ FINDING_KIND_VOID: FindingKind
 FINDING_KIND_SILENT: FindingKind
 FINDING_KIND_OFF_CONTRACT: FindingKind
 FINDING_KIND_LEASE_EXPIRED: FindingKind
+FINDING_KIND_RENEWAL_REFUSED: FindingKind
 
 class TopicRow(_message.Message):
     __slots__ = ("topic", "last_record", "consumers", "void", "silent", "expected_cadence", "silent_for", "off_contract_records", "last_off_contract")

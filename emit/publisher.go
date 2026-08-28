@@ -44,12 +44,23 @@ type Publisher struct {
 
 // New connects the producer. An error means emission is unavailable; the caller
 // should log it and proceed with a nil Publisher rather than failing.
-func New(ctx context.Context, brokers []string, schemaRegistryURL string) (*Publisher, error) {
+//
+// clientID is REQUIRED and is the frood identity (the service_name your
+// heartbeat carries). The fleet convention -- client-id MUST be the frood
+// identity -- is structural here on purpose: it is what lets the broker's
+// quota levers name a client, which is what lets hm kick bad behavior off
+// the network (rfc-hall-monitor 3.4). An unnamed producer is exactly the
+// thing enforcement cannot reach.
+func New(ctx context.Context, brokers []string, schemaRegistryURL, clientID string) (*Publisher, error) {
 	if len(brokers) == 0 {
 		return nil, fmt.Errorf("no kafka brokers configured")
 	}
+	if clientID == "" {
+		return nil, fmt.Errorf("no clientID: the fleet convention is client-id = frood identity, and enforcement cannot reach an unnamed producer")
+	}
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
+		kgo.ClientID(clientID),
 		kgo.RequiredAcks(kgo.AllISRAcks()),
 		kgo.ProducerLinger(5*time.Millisecond),
 	)
