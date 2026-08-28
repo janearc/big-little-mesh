@@ -201,7 +201,7 @@ var File_lease_v1_lease_proto protoreflect.FileDescriptor
 
 const file_lease_v1_lease_proto_rawDesc = "" +
 	"\n" +
-	"\x14lease/v1/lease.proto\x12\blease.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb8\x02\n" +
+	"\x14lease/v1/lease.proto\x12\blease.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb2\x02\n" +
 	"\fLeaseVerdict\x12!\n" +
 	"\fservice_name\x18\x01 \x01(\tR\vserviceName\x12*\n" +
 	"\x05state\x18\x02 \x01(\x0e2\x14.lease.v1.LeaseStateR\x05state\x12A\n" +
@@ -209,7 +209,7 @@ const file_lease_v1_lease_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x127\n" +
 	"\tissued_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\bissuedAt\x12\x1c\n" +
-	"\tauthority\x18\x06 \x01(\tR\tauthorityJ\x04\b\a\x10\x10*x\n" +
+	"\tauthority\x18\x06 \x01(\tR\tauthority*x\n" +
 	"\n" +
 	"LeaseState\x12\x1b\n" +
 	"\x17LEASE_STATE_UNSPECIFIED\x10\x00\x12\x1a\n" +

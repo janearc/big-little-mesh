@@ -120,8 +120,7 @@ func (c *Consumer) Run(ctx context.Context, h Handler) {
 // returns the protobuf payload. It is the exact inverse of emit.encode:
 //
 //	byte 0    : magic 0x00
-//	bytes 1-4 : schema id, big-endian (ignored on read -- the type is fixed by
-//	            the topic/handler, not carried per-message)
+//	bytes 1-4 : schema id, big-endian
 //	N bytes   : message-index (single 0x00 for a first/only message, else a
 //	            zig-zag varint count followed by that many zig-zag varint indices)
 //	rest      : serialized protobuf payload
@@ -130,27 +129,39 @@ func (c *Consumer) Run(ctx context.Context, h Handler) {
 // the 0x00 optimization, so a multi-message schema file does not silently corrupt
 // decoding -- the same sharp edge emit.encode guards on the write side.
 func StripFrame(frame []byte) ([]byte, error) {
+	_, payload, err := ParseFrame(frame)
+	return payload, err
+}
+
+// ParseFrame is StripFrame keeping the schema id instead of discarding it.
+// The id is what a registry-aware consumer resolves to a SUBJECT to decide
+// what a record IS -- the durable replacement for discriminating message
+// types by unknown-field residue, which breaks the day a schema grows a
+// field the consumer has not vendored (hall-monitor's lease authority is
+// the worked case).
+func ParseFrame(frame []byte) (int32, []byte, error) {
 	if len(frame) < 5 || frame[0] != 0x00 {
-		return nil, fmt.Errorf("not a confluent SR frame (len=%d)", len(frame))
+		return 0, nil, fmt.Errorf("not a confluent SR frame (len=%d)", len(frame))
 	}
-	rest := frame[5:] // skip magic + 4-byte schema id
+	id := int32(binary.BigEndian.Uint32(frame[1:5]))
+	rest := frame[5:] // past magic + schema id
 	if len(rest) == 0 {
-		return nil, fmt.Errorf("frame truncated before message-index")
+		return 0, nil, fmt.Errorf("frame truncated before message-index")
 	}
 	if rest[0] == 0x00 {
-		return rest[1:], nil
+		return id, rest[1:], nil
 	}
 	count, n := binary.Varint(rest)
 	if n <= 0 {
-		return nil, fmt.Errorf("bad message-index count varint")
+		return 0, nil, fmt.Errorf("bad message-index count varint")
 	}
 	rest = rest[n:]
 	for i := int64(0); i < count; i++ {
 		_, n := binary.Varint(rest)
 		if n <= 0 {
-			return nil, fmt.Errorf("bad message-index varint")
+			return 0, nil, fmt.Errorf("bad message-index varint")
 		}
 		rest = rest[n:]
 	}
-	return rest, nil
+	return id, rest, nil
 }

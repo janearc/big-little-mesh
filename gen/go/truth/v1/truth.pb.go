@@ -501,7 +501,7 @@ const file_truth_v1_truth_proto_rawDesc = "" +
 	"\x05topic\x18\x03 \x01(\tR\x05topic\x12\x16\n" +
 	"\x06detail\x18\x04 \x01(\tR\x06detail\"#\n" +
 	"\tTopicList\x12\x16\n" +
-	"\x06topics\x18\x01 \x03(\tR\x06topics\"\x80\x03\n" +
+	"\x06topics\x18\x01 \x03(\tR\x06topics\"\xfa\x02\n" +
 	"\x06Report\x12\x18\n" +
 	"\aservice\x18\x01 \x01(\tR\aservice\x12=\n" +
 	"\fgenerated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\x126\n" +
@@ -513,7 +513,7 @@ const file_truth_v1_truth_proto_rawDesc = "" +
 	"\bfindings\x18\x06 \x03(\v2\x11.truth.v1.FindingR\bfindings\x1aN\n" +
 	"\vGroupsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
-	"\x05value\x18\x02 \x01(\v2\x13.truth.v1.TopicListR\x05value:\x028\x01J\x04\b\a\x10\x10*H\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.truth.v1.TopicListR\x05value:\x028\x01*H\n" +
 	"\fFindingClass\x12\x1d\n" +
 	"\x19FINDING_CLASS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15FINDING_CLASS_REFUSAL\x10\x01*\x9a\x01\n" +

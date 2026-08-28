@@ -57,10 +57,12 @@ message LeaseVerdict {
   // distinguishable on the wire rather than ambient.
   string authority = 6;
 
-  // Reserved for build identity and instance binding (RFC v1: "registration
-  // carries build identity") and for the flag-namespace correlation data-3
-  // raised (build_id and proto-API version are DIFFERENT identifiers; when the
-  // verdict carries either, it will name which). Reserved now so they arrive
-  // without renumbering.
-  reserved 7 to 15;
+  // Future fields -- build identity and instance binding (RFC v1:
+  // "registration carries build identity"), and the flag-namespace
+  // correlation data-3 raised (build_id and proto-API version are DIFFERENT
+  // identifiers; when the verdict carries either, it will name which) --
+  // take the NEXT FREE NUMBER when they arrive. NOT pre-reserved: measured
+  // 2026-08-28, buf's FILE rules refuse shrinking a reserved range (exit
+  // 100), so a reservation would mean these fields could never land through
+  // the required gate. `reserved` is for numbers RETIRED, never planned.
 }

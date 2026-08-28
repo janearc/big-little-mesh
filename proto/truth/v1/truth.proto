@@ -98,8 +98,11 @@ message Report {
   map<string, TopicList> groups = 5;
   repeated Finding findings = 6;
 
-  // Reserved for build identity and the served-majors surface (the "speaks"
-  // column the registry-aware consumer will fill) -- reserved now so they
-  // arrive without renumbering, the lease.v1 idiom.
-  reserved 7 to 15;
+  // Future fields -- build identity, and the served-majors surface (the
+  // "speaks" column the registry-aware consumer fills) -- take the NEXT FREE
+  // NUMBER when they arrive. NOT pre-reserved: measured 2026-08-28, buf's
+  // FILE rules refuse shrinking a reserved range (exit 100), so a
+  // reservation here would mean these fields could never land through the
+  // required gate. `reserved` is for numbers RETIRED, never for numbers
+  // planned.
 }
