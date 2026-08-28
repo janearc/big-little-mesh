@@ -33,9 +33,17 @@ const (
 // no-op (emission disabled), so a caller can hold one unconditionally and let a
 // missing broker be silent. Blocks; run it in a goroutine.
 //
-// schemaText is the observability .proto source (see
 // proto/observability/v1.Schema); it is registered once per subject.
-func Heartbeat(ctx context.Context, pub *emit.Publisher, serviceName, schemaText string, interval time.Duration, log *slog.Logger) {
+// Heartbeat supplies its own schema. It used to take a schemaText parameter,
+// and that parameter had exactly one correct value -- the observability
+// contract this function publishes -- so its only reachable behavior was the
+// failure flipr hit: pass any other schema and a FULL_TRANSITIVE registry
+// refuses every beat, best-effort, silently, and the citizen never appears in
+// the authorized table. A parameter whose wrong values are all silent is not
+// flexibility; callers that passed the old argument now fail to COMPILE,
+// which is the notice.
+func Heartbeat(ctx context.Context, pub *emit.Publisher, serviceName string, interval time.Duration, log *slog.Logger) {
+	schemaText := observabilityproto.Schema
 	if interval <= 0 {
 		interval = 15 * time.Second
 	}

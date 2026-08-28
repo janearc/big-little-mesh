@@ -27,7 +27,6 @@ import (
 	"github.com/janearc/big-little-mesh/frood"
 	bentov1 "github.com/janearc/big-little-mesh/gen/go/bento/v1"
 	bentoproto "github.com/janearc/big-little-mesh/proto/bento/v1"
-	observabilityproto "github.com/janearc/big-little-mesh/proto/observability/v1"
 	"github.com/janearc/big-little-mesh/watcher"
 )
 
@@ -142,7 +141,7 @@ func main() {
 		pub = p
 		defer pub.Close()
 		log.Info("kafka emission ready")
-		go frood.Heartbeat(ctx, pub, serviceID, observabilityproto.Schema, 15*time.Second, log)
+		go frood.Heartbeat(ctx, pub, serviceID, 15*time.Second, log)
 	}
 
 	h := handlers{log: log}
