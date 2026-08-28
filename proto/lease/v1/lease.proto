@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+// Package lease.v1 is hall-monitor's lease verdict: the authority's statement of
+// who is authorized to be on the network, per service, judged from the wire.
+//
+// THE HEARTBEAT IS THE RENEWAL. This package deliberately defines NO request and
+// NO client-side lease call: a service's observability.v1.ServiceHealthHeartbeat
+// is its keepalive (docs/frood.md), and hm -- the runtime lease authority, ruled
+// by the operator 2026-08-28 -- judges presence into lease state and emits these
+// verdicts. A lessee's entire obligation is the heartbeat it should be emitting
+// anyway. Nothing blocks when hm is down: heartbeats are durable on the bus and
+// judgment resumes with hm.
+//
+// CADENCE IS OBSERVED, NOT DICTATED. hm learns each service's heartbeat cadence
+// from the wire (the absence ledger already does this) and judges silence
+// against three of the service's OWN observed cadences. No client hardcodes a
+// TTL; expires_at below is hm's statement of when authorization decays if no
+// further heartbeat arrives.
+//
+// Relationship to delightd's registration lease: delightd expires REGISTRATION
+// on heartbeat silence (register-time identity); hm judges RUNTIME authorization
+// (who is on the wire now). Same signal, two consumers, different verdicts.
+// Consolidating authority is the operator's architecture call, not this file's.
+package lease.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// LeaseState classifies one service's runtime authorization.
+enum LeaseState {
+  LEASE_STATE_UNSPECIFIED = 0;
+  // AUTHORIZED: heartbeat observed within the service's own cadence window.
+  LEASE_STATE_AUTHORIZED = 1;
+  // EXPIRING: at least one missed cadence, still inside the three-cadence
+  // grace. The countdown the RFC's lease stream broadcasts.
+  LEASE_STATE_EXPIRING = 2;
+  // EXPIRED: silence past three observed cadences. Refusal-class; the service
+  // appears in hm's findings, not just this stream.
+  LEASE_STATE_EXPIRED = 3;
+}
+
+// LeaseVerdict is one authority judgment about one service, emitted by hm on
+// every state transition and on a slow refresh tick so late consumers converge.
+// Subject (RecordNameStrategy): lease.v1.LeaseVerdict.
+message LeaseVerdict {
+  // service_name matches the heartbeat's service_name -- the fleet-unique key
+  // (see frood.v1.Identity).
+  string service_name = 1;
+  LeaseState state = 2;
+  // last_heartbeat is the newest heartbeat hm observed from this service.
+  google.protobuf.Timestamp last_heartbeat = 3;
+  // expires_at is when AUTHORIZED decays absent renewal: last_heartbeat plus
+  // three observed cadences. Meaningless (unset) once EXPIRED.
+  google.protobuf.Timestamp expires_at = 4;
+  // issued_at is when hm rendered this verdict.
+  google.protobuf.Timestamp issued_at = 5;
+  // authority names the judge -- "hm" -- so a future second authority is
+  // distinguishable on the wire rather than ambient.
+  string authority = 6;
+
+  // Reserved for build identity and instance binding (RFC v1: "registration
+  // carries build identity") and for the flag-namespace correlation data-3
+  // raised (build_id and proto-API version are DIFFERENT identifiers; when the
+  // verdict carries either, it will name which). Reserved now so they arrive
+  // without renumbering.
+  reserved 7 to 15;
+}
