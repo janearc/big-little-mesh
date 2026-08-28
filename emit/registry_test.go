@@ -27,7 +27,7 @@ func TestNew_RejectsEmptyBrokers(t *testing.T) {
 func TestNew_UnreachableBroker(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // pre-cancelled so Ping returns promptly instead of dialing forever
-	if _, err := New(ctx, []string{"127.0.0.1:1"}, "http://x"); err == nil {
+	if _, err := New(ctx, []string{"127.0.0.1:1"}, "http://x", "test-svc"); err == nil {
 		t.Fatal("expected error for unreachable broker")
 	}
 }
