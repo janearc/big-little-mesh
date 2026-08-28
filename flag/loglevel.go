@@ -68,7 +68,12 @@ func PollLogLevel(ctx context.Context, base, service string, lv *slog.LevelVar, 
 				down = true
 			}
 		case val == "":
-			// declared nowhere, service or global: the boot default stands.
+			// Declared nowhere, service or global. The LAST APPLIED level
+			// holds -- not the boot default, and that is a choice: a flag
+			// deleted mid-incident should not silently yank the level out
+			// from under whoever turned it up. (This comment previously
+			// claimed the boot default stands; the code never did that, and
+			// the code's behavior is the right one.)
 			down = false
 		default:
 			down = false
